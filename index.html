@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紫微斗数 - 星际舰队版 (AI 核心)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Lunar Calendar Library -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.min.js"></script>
+    <!-- Marked for Markdown Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050510; color: #fff; font-family: 'Noto Sans SC', sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none; 
+            width: 100%;
+            height: 100%;
+            padding: 0;
+        }
+
+        .panel {
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(100, 200, 255, 0.15);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            pointer-events: auto; 
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- INPUT PANEL (LEFT) --- */
+        .input-panel {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            width: 320px;
+            border-left: 3px solid #219ebc;
+            max-height: 90vh;
+            transition: max-height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            overflow: hidden; /* Important for collapse */
+        }
+
+        .input-panel.collapsed {
+            max-height: 60px; /* Header height only */
+        }
+        
+        .input-panel.collapsed .input-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .input-content {
+            padding: 24px;
+            padding-top: 10px;
+            overflow-y: auto;
+            transition: opacity 0.3s ease;
+            scrollbar-width: none;
+        }
+
+        /* --- INFO PANEL (RIGHT) --- */
+        .info-panel {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 380px; 
+            max-width: 90vw;
+            transform: translateX(120%); 
+            border-right: 3px solid #ffb703;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), max-height 0.4s ease;
+            max-height: 85vh; 
+        }
+        .info-panel.active {
+            transform: translateX(0);
+        }
+
+        .info-panel.collapsed {
+            max-height: 60px; 
+            overflow: hidden;
+            border-bottom: none;
+        }
+        .info-panel.collapsed .info-scroll {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* --- SHARED PANEL HEADER --- */
+        .panel-header {
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            min-height: 60px; /* Ensure fixed height for header */
+        }
+        .panel-header:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+        .toggle-icon {
+            transition: transform 0.3s ease;
+            color: #94a3b8;
+        }
+        /* Rotate icon when collapsed */
+        .input-panel.collapsed .toggle-icon,
+        .info-panel.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .info-scroll {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            transition: opacity 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 transparent;
+        }
+
+        h1 { font-size: 1.4rem; color: #8ecae6; margin: 0; text-shadow: 0 0 15px rgba(33, 158, 188, 0.6); letter-spacing: 2px; }
+        h2 { font-size: 1.4rem; color: #ffb703; margin: 0; text-shadow: 0 0 10px rgba(255, 183, 3, 0.4); }
+        
+        label { display: block; font-size: 0.75rem; color: #94a3b8; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        input, select {
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid #334455;
+            color: #e0f0ff;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        input:focus, select:focus {
+            border-color: #38bdf8;
+            outline: none;
+            background: rgba(15, 23, 42, 0.8);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 10px;
+            background: linear-gradient(135deg, #219ebc, #023047);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: white;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3);
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.2); }
+
+        .ai-btn {
+            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+        .ai-btn:hover {
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+        }
+
+        .star-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 4px;
+            margin-bottom: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            font-weight: bold;
+        }
+        /* UI Brightness Colors */
+        .star-miao { color: #ffd700; border-color: #ffd700; background: rgba(255, 215, 0, 0.15); box-shadow: 0 0 5px rgba(255, 215, 0, 0.3); } /* 庙 - Gold */
+        .star-wang { color: #ffad33; border-color: #ffad33; background: rgba(255, 173, 51, 0.1); } /* 旺 - Orange Gold */
+        .star-de   { color: #4ade80; border-color: #4ade80; background: rgba(74, 222, 128, 0.1); } /* 得 - Green */
+        .star-li   { color: #60a5fa; border-color: #60a5fa; background: rgba(96, 165, 250, 0.1); } /* 利 - Blue */
+        .star-ping { color: #94a3b8; border-color: #94a3b8; background: rgba(148, 163, 184, 0.1); } /* 平 - Grey */
+        .star-bu   { color: #94a3b8; border-color: #94a3b8; opacity: 0.7; } /* 不 - Dim */
+        .star-xian { color: #f87171; border-color: #f87171; opacity: 0.8; background: rgba(248, 113, 113, 0.1); } /* 陷 - Red/Dim */
+        
+        .sihua-lu { color: #4ade80; font-weight: bold; text-shadow: 0 0 5px rgba(74, 222, 128, 0.5); }
+        .sihua-quan { color: #60a5fa; font-weight: bold; text-shadow: 0 0 5px rgba(96, 165, 250, 0.5); }
+        .sihua-ke { color: #c084fc; font-weight: bold; text-shadow: 0 0 5px rgba(192, 132, 252, 0.5); }
+        .sihua-ji { color: #f43f5e; font-weight: bold; text-shadow: 0 0 5px rgba(244, 63, 94, 0.5); }
+
+        /* Loading Overlay */
+        #loading {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #02040a;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            width: 60px; height: 60px;
+            border: 4px solid rgba(56, 189, 248, 0.2);
+            border-top: 4px solid #38bdf8;
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* AI Modal */
+        #ai-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .ai-content {
+            background: linear-gradient(145deg, #10141d, #1a1f2e);
+            width: 90%; max-width: 600px;
+            max-height: 80vh;
+            border-radius: 12px;
+            border: 1px solid #7c3aed;
+            padding: 30px;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 0 50px rgba(124, 58, 237, 0.2);
+        }
+        .close-modal {
+            position: absolute; top: 15px; right: 20px;
+            font-size: 24px; cursor: pointer; color: #94a3b8;
+            transition: color 0.2s;
+        }
+        .close-modal:hover { color: #fff; }
+        .markdown-body h3 { color: #a78bfa; margin-top: 1.2em; font-size: 1.1em; font-weight: bold; border-bottom: 1px dashed rgba(167, 139, 250, 0.3); padding-bottom: 5px; }
+        .markdown-body p { line-height: 1.7; margin-bottom: 0.8em; color: #e2e8f0; }
+        .markdown-body strong { color: #fbbf24; }
+
+        /* Floating Action Buttons Area */
+        .fab-container {
+            position: absolute;
+            bottom: 30px; right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 40;
+            pointer-events: auto;
+        }
+
+        .fab {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 28px; cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 5px 25px rgba(0,0,0,0.4);
+        }
+        .fab:hover { transform: scale(1.1); }
+        
+        .chat-fab {
+            background: linear-gradient(135deg, #f72585, #4361ee);
+            box-shadow: 0 5px 25px rgba(247, 37, 133, 0.4);
+        }
+        .calendar-fab {
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            box-shadow: 0 5px 25px rgba(255, 140, 0, 0.4);
+        }
+        .kline-fab {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            box-shadow: 0 5px 25px rgba(220, 38, 38, 0.4);
+        }
+        
+        /* Chat Window */
+        .chat-window {
+            position: absolute;
+            bottom: 110px; right: 30px;
+            width: 360px; height: 500px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            display: none;
+            flex-direction: column;
+            pointer-events: auto;
+            z-index: 40;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+        .chat-header { padding: 15px; background: linear-gradient(90deg, #1e293b, #0f172a); border-bottom: 1px solid #334155; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; font-size: 0.9rem; scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        .chat-input-area { padding: 15px; border-top: 1px solid #334155; display: flex; gap: 8px; background: #1e293b; }
+        .chat-input { flex: 1; background: #0f172a; border: 1px solid #334155; padding: 10px; border-radius: 6px; color: white; }
+        .chat-input:focus { border-color: #4361ee; outline: none; }
+        
+        .msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; max-width: 85%; line-height: 1.5; }
+        .msg-user { background: linear-gradient(135deg, #4361ee, #3a0ca3); align-self: flex-end; margin-left: auto; color: white; border-bottom-right-radius: 2px; }
+        .msg-ai { background: #2a3b55; align-self: flex-start; color: #e2e8f0; border-bottom-left-radius: 2px; }
+
+        /* Daily Calendar Panel */
+        .calendar-panel {
+            position: absolute;
+            bottom: 110px; right: 30px; 
+            width: 340px;
+            /* Fix: Added max-height to prevent occlusion at the top */
+            max-height: calc(100vh - 140px);
+            background: rgba(20, 20, 25, 0.95);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 16px;
+            display: none; 
+            flex-direction: column;
+            pointer-events: auto;
+            z-index: 41; /* Above chat if both active */
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            font-family: 'Noto Serif SC', serif; /* Traditional Feel */
+            overflow: hidden;
+        }
+
+        .cal-header {
+            background: linear-gradient(to right, #2c1a00, #4a3500);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #b8860b;
+            position: relative;
+            /* Fix: Ensure header stays at top */
+            flex-shrink: 0;
+        }
+        .cal-header::after {
+            content: '';
+            position: absolute;
+            bottom: -6px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 6px solid #b8860b;
+        }
+
+        .cal-date-big { font-size: 2.2rem; font-weight: bold; color: #fff; line-height: 1; margin-bottom: 5px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .cal-lunar { font-size: 1.2rem; color: #ffd700; letter-spacing: 4px; margin-bottom: 5px; }
+        .cal-ganzhi { font-size: 0.85rem; color: #aaa; font-family: 'Noto Sans SC', sans-serif; opacity: 0.8; }
+
+        /* Fix: Ensure body scrolls properly within max-height */
+        .cal-body { padding: 20px; overflow-y: auto; flex: 1; min-height: 0; }
+        
+        .yiji-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .yiji-box { padding: 10px; border-radius: 8px; position: relative; }
+        .yiji-box.yi { background: rgba(0, 100, 0, 0.2); border: 1px solid rgba(50, 205, 50, 0.3); }
+        .yiji-box.ji { background: rgba(100, 0, 0, 0.2); border: 1px solid rgba(255, 69, 0, 0.3); }
+        
+        .circle-icon {
+            width: 24px; height: 24px; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center;
+            font-size: 14px; font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .yi .circle-icon { background: #32cd32; color: #000; box-shadow: 0 0 10px rgba(50,205,50,0.4); }
+        .ji .circle-icon { background: #ff4500; color: #fff; box-shadow: 0 0 10px rgba(255,69,0,0.4); }
+
+        .yiji-text { font-size: 0.85rem; color: #ddd; line-height: 1.4; }
+
+        .info-row { display: flex; justify-content: space-between; font-size: 0.8rem; border-bottom: 1px dashed rgba(255,255,255,0.1); padding: 8px 0; }
+        .info-label { color: #888; }
+        .info-val { color: #ccc; }
+
+        .ai-fortune-box {
+            margin-top: 15px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(67, 97, 238, 0.1));
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .ai-title { font-size: 0.9rem; color: #a78bfa; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; font-weight: bold; }
+        .ai-text { font-size: 0.85rem; color: #e2e8f0; line-height: 1.6; min-height: 40px; }
+
+        .refresh-btn {
+            width: 100%;
+            background: transparent;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            margin-top: 10px;
+            padding: 8px;
+            font-size: 0.8rem;
+        }
+        .refresh-btn:hover { border-color: #a78bfa; color: #fff; }
+
+        /* LIFE K-LINE PANEL */
+        .life-panel {
+            position: absolute;
+            bottom: 110px; right: 30px; 
+            width: 500px;
+            height: 450px;
+            background: rgba(15, 20, 30, 0.98);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 16px;
+            display: none; 
+            flex-direction: column;
+            pointer-events: auto;
+            z-index: 42;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        .life-header {
+            padding: 15px;
+            background: linear-gradient(90deg, #2b1212, #1a0f0f);
+            border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 16px 16px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .life-title {
+            font-size: 1.1rem; font-weight: bold; color: #f87171; display: flex; align-items: center; gap: 8px;
+        }
+        .life-chart-container {
+            flex: 1;
+            position: relative;
+            padding: 15px;
+            background: #0b0d12;
+            overflow: hidden;
+            cursor: crosshair; /* Crosshair cursor */
+        }
+        .life-analysis {
+            height: 120px;
+            padding: 15px;
+            border-top: 1px solid #334155;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+        canvas#lifeChart {
+            width: 100%;
+            height: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <div class="spinner"></div>
+    <p style="margin-top: 25px; color: #38bdf8; font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase;">正在校准星际坐标...</p>
+</div>
+
+<!-- Canvas -->
+<div id="canvas-container"></div>
+
+<!-- UI Layer -->
+<div id="ui-layer">
+    <!-- Input Panel (Top Left - Collapsible) -->
+    <div class="panel input-panel" id="inputPanel">
+        <!-- Header -->
+        <div class="panel-header" onclick="toggleInputPanel()">
+            <h1>🌌 紫微星系</h1>
+            <div class="toggle-icon">▼</div>
+        </div>
+
+        <!-- Content -->
+        <div class="input-content">
+            <p class="text-xs text-blue-300 mb-6 opacity-70 font-mono">Star Fleet Visualization</p>
+            
+            <label>出生日期 (阳历)</label>
+            <input type="date" id="birthDate" value="1990-06-15">
+            
+            <label>出生时辰</label>
+            <select id="birthHour">
+                <option value="0">子时 (23:00-01:00)</option>
+                <option value="1">丑时 (01:00-03:00)</option>
+                <option value="2">寅时 (03:00-05:00)</option>
+                <option value="3">卯时 (05:00-07:00)</option>
+                <option value="4">辰时 (07:00-09:00)</option>
+                <option value="5">巳时 (09:00-11:00)</option>
+                <option value="6" selected>午时 (11:00-13:00)</option>
+                <option value="7">未时 (13:00-15:00)</option>
+                <option value="8">申时 (15:00-17:00)</option>
+                <option value="9">酉时 (17:00-19:00)</option>
+                <option value="10">戌时 (19:00-21:00)</option>
+                <option value="11">亥时 (21:00-23:00)</option>
+            </select>
+
+            <label>性别</label>
+            <select id="gender">
+                <option value="1">男 (乾造)</option>
+                <option value="0">女 (坤造)</option>
+            </select>
+
+            <button onclick="generateChart()">🚀 开启星盘</button>
+            
+            <div id="bureau-info" class="mt-6 text-xs text-blue-200 border-t border-blue-900 pt-3 hidden flex justify-between font-mono">
+                <!-- Bureau info -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Panel (Top Right - Collapsible) -->
+    <div class="panel info-panel" id="infoPanel">
+        <!-- Header -->
+        <div class="panel-header" onclick="toggleInfoPanel()">
+            <div class="flex flex-col">
+                <h2 id="panelTitle">宫位名称</h2>
+                <div class="text-xs text-blue-300 font-mono" id="panelSub">WAITING FOR DATA...</div>
+            </div>
+            <div class="toggle-icon">▼</div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="info-scroll">
+            <div class="w-full h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent mb-4"></div>
+            <div id="starList" class="space-y-2">
+                <!-- Stars -->
+            </div>
+            
+            <!-- Gemini Button -->
+            <button class="ai-btn" onclick="analyzeCurrentPalace(); event.stopPropagation();">
+                <span>✨</span> 问星 AI 深度解析
+            </button>
+
+            <!-- Removed "点击悬浮星岛查看详情" text as requested -->
+        </div>
+    </div>
+</div>
+
+<!-- Floating Action Buttons -->
+<div class="fab-container">
+    <!-- Daily Calendar FAB -->
+    <div class="fab calendar-fab" onclick="toggleDailyPanel()" title="今日星历">📅</div>
+    <!-- Life K-Line FAB -->
+    <div class="fab kline-fab" onclick="toggleLifePanel()" title="人生大运K线">📈</div>
+    <!-- Chat FAB -->
+    <div class="fab chat-fab" onclick="toggleChat()" title="命理咨询">✨</div>
+</div>
+
+<!-- Daily Calendar Panel -->
+<div class="calendar-panel" id="dailyPanel">
+    <div class="cal-header">
+        <span class="close-modal" style="top: 10px; right: 15px; font-size: 20px;" onclick="toggleDailyPanel()">✕</span>
+        <div class="cal-date-big" id="calSolarDate">--</div>
+        <div class="cal-lunar" id="calLunarDate">--</div>
+        <div class="cal-ganzhi" id="calGanzhi">--</div>
+    </div>
+    <div class="cal-body">
+        <div class="yiji-grid">
+            <div class="yiji-box yi">
+                <div class="circle-icon">宜</div>
+                <div class="yiji-text" id="calYi">...</div>
+            </div>
+            <div class="yiji-box ji">
+                <div class="circle-icon">忌</div>
+                <div class="yiji-text" id="calJi">...</div>
+            </div>
+        </div>
+        
+        <!-- Removed info-row (WuXing, ChongSha, JiShen) as requested -->
+
+        <!-- AI Daily Insight -->
+        <div class="ai-fortune-box">
+            <div class="ai-title">
+                <span>🔮 今日运程参考</span>
+            </div>
+            <div class="ai-text" id="calAiText">点击下方按钮，结合您的命盘进行推演...</div>
+            <button class="refresh-btn" onclick="generateDailyReport()">✨ 推演今日运程</button>
+        </div>
+    </div>
+</div>
+
+<!-- Life K-Line Panel -->
+<div class="life-panel" id="lifePanel">
+    <div class="life-header">
+        <div class="life-title">📈 人生大运 K 线图</div>
+        <span class="cursor-pointer text-gray-400 hover:text-white" onclick="toggleLifePanel()">✕</span>
+    </div>
+    <div class="life-chart-container">
+        <canvas id="lifeChart"></canvas>
+    </div>
+    <div class="life-analysis" id="lifeAnalysisText">
+        <div class="animate-pulse text-gray-500">请先生成星盘，系统将依据《渊海子平》与《子平真诠》的月令提纲法，结合大运流年为您推演一生起伏...</div>
+    </div>
+</div>
+
+<!-- Chat Window -->
+<div class="chat-window" id="chatWindow">
+    <div class="chat-header">
+        <span class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">AI 命理大师咨询室</span>
+        <span class="cursor-pointer text-gray-400 hover:text-white" onclick="toggleChat()">✕</span>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        <div class="msg msg-ai">你好！我是你的 AI 命理助手。我已经读取了你的全盘数据，你可以问我任何关于事业、感情或流年的问题。</div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" class="chat-input" id="userQuery" placeholder="输入你的问题..." onkeypress="handleChatKey(event)">
+        <button style="margin:0; width:auto; padding: 8px 12px; background: #4361ee;" onclick="askMaster()">发送</button>
+    </div>
+</div>
+
+<!-- AI Result Modal -->
+<div id="ai-modal">
+    <div class="ai-content">
+        <span class="close-modal" onclick="closeAiModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">✨ 星曜启示</h2>
+        <div id="ai-result-text" class="markdown-body text-sm">
+            正在通过星际网络连接 AI 大师...
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- GEMINI API CONFIG ---
+    const apiKey = ""; // System provides key
+
+    async function callGemini(prompt, systemInstruction = "") {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+        };
+
+        const maxRetries = 3;
+        let delay = 1000;
+
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "星象模糊，无法解读。";
+            } catch (error) {
+                if (i === maxRetries - 1) return "连接宇宙能量失败 (API Error)。请稍后再试。";
+                await new Promise(r => setTimeout(r, delay));
+                delay *= 2;
+            }
+        }
+    }
+
+    // --- 1. ZI WEI DOU SHU LOGIC ENGINE ---
+
+    const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    const PALACE_NAMES = ['命宫', '兄弟', '夫妻', '子女', '财帛', '疾厄', '迁移', '仆役', '官禄', '田宅', '福德', '父母'];
+    
+    // 5 Element Bureau mapping (Based on Stem/Branch of Ming Palace)
+    const BUREAU_MATRIX = [
+        [2, 2, 6, 6, 3, 3], 
+        [6, 6, 5, 5, 4, 4], 
+        [5, 5, 4, 4, 2, 2], 
+        [4, 4, 2, 2, 6, 6], 
+        [3, 3, 6, 6, 5, 5] 
+    ];
+
+    function getBureau(stemIdx, branchIdx) {
+        // Fallback: Using a predefined NaYin lookup for the 60 JiaZi
+        const NAYIN_BUREAU = [
+             4, 4, 6, 6, 3, 3, 5, 5, 4, 4, 6, 6, // JiaZi to YiHai
+             2, 2, 6, 6, 5, 5, 3, 3, 2, 2, 5, 5, // BingZi to DingHai
+             6, 6, 5, 5, 3, 3, 2, 2, 4, 4, 6, 6, // WuZi to JiHai
+             4, 4, 3, 3, 2, 2, 6, 6, 5, 5, 3, 3, // GengZi to XinHai
+             3, 3, 4, 4, 6, 6, 2, 2, 3, 3, 2, 2  // RenZi to GuiHai
+        ];
+        
+        for(let i=0; i<60; i++) {
+            if (i % 10 === stemIdx && i % 12 === branchIdx) {
+                return NAYIN_BUREAU[i];
+            }
+        }
+        return 2; // Fallback Water 2
+    }
+
+    const SI_HUA_RULES = {
+        0: { Lu:'廉贞', Quan:'破军', Ke:'武曲', Ji:'太阳' }, // Jia
+        1: { Lu:'天机', Quan:'天梁', Ke:'紫微', Ji:'太阴' }, // Yi
+        2: { Lu:'天同', Quan:'天机', Ke:'文昌', Ji:'廉贞' }, // Bing
+        3: { Lu:'太阴', Quan:'天同', Ke:'天机', Ji:'巨门' }, // Ding
+        4: { Lu:'贪狼', Quan:'太阴', Ke:'右弼', Ji:'天机' }, // Wu
+        5: { Lu:'武曲', Quan:'贪狼', Ke:'天梁', Ji:'文曲' }, // Ji
+        6: { Lu:'太阳', Quan:'武曲', Ke:'太阴', Ji:'天同' }, // Geng
+        7: { Lu:'巨门', Quan:'太阳', Ke:'文曲', Ji:'文昌' }, // Xin
+        8: { Lu:'天梁', Quan:'紫微', Ke:'左辅', Ji:'武曲' }, // Ren
+        9: { Lu:'破军', Quan:'巨门', Ke:'太阴', Ji:'贪狼' }  // Gui
+    };
+
+    const MAIN_STARS_INFO = {
+        '紫微': { type: '帝王', color: '#a020f0', desc: '尊贵、领导、解厄。全盘中枢。' },
+        '天机': { type: '智慧', color: '#4caf50', desc: '机智、变动、谋略。' },
+        '太阳': { type: '权贵', color: '#ff9800', desc: '博爱、名声、付出。' },
+        '武曲': { type: '财富', color: '#ffd700', desc: '刚毅、决断、正财。' },
+        '天同': { type: '福气', color: '#03a9f4', desc: '温顺、享乐、协调。' },
+        '廉贞': { type: '囚星', color: '#ff4444', desc: '次桃花、复杂、行政。' },
+        '天府': { type: '财库', color: '#d2b48c', desc: '包容、保守、掌财。' },
+        '太阴': { type: '母性', color: '#88ccff', desc: '温柔、田宅、财富。' },
+        '贪狼': { type: '欲望', color: '#ff69b4', desc: '桃花、投机、多才。' },
+        '巨门': { type: '是非', color: '#708090', desc: '口才、暗昧、研究。' },
+        '天相': { type: '印星', color: '#4682b4', desc: '辅佐、公正、爱美。' },
+        '天梁': { type: '荫星', color: '#556b2f', desc: '老人、原则、医药。' },
+        '七杀': { type: '将星', color: '#cd5c5c', desc: '肃杀、变动、独立。' },
+        '破军': { type: '耗星', color: '#191970', desc: '破坏、先破后立。' }
+    };
+
+    // --- ACCURATE BRIGHTNESS TABLE (Miao/Wang/Di/Ping/Xian) ---
+    // Order: Zi(0) -> Hai(11)
+    const STAR_BRIGHTNESS_TABLE = {
+        '紫微': ['平', '庙', '庙', '旺', '得', '得', '庙', '庙', '旺', '平', '得', '旺'],
+        '天机': ['庙', '陷', '得', '旺', '利', '平', '庙', '陷', '得', '旺', '利', '平'],
+        '太阳': ['陷', '陷', '旺', '庙', '旺', '旺', '庙', '得', '得', '平', '陷', '陷'],
+        '武曲': ['旺', '庙', '得', '陷', '庙', '平', '旺', '庙', '得', '陷', '庙', '平'],
+        '天同': ['旺', '陷', '平', '庙', '平', '庙', '陷', '陷', '旺', '平', '平', '庙'],
+        '廉贞': ['平', '利', '庙', '平', '利', '陷', '平', '利', '庙', '平', '利', '陷'],
+        '天府': ['庙', '庙', '庙', '平', '庙', '得', '旺', '庙', '得', '平', '庙', '得'],
+        '太阴': ['庙', '庙', '陷', '陷', '陷', '陷', '陷', '平', '利', '旺', '旺', '庙'],
+        '贪狼': ['旺', '庙', '平', '平', '庙', '陷', '旺', '庙', '平', '平', '庙', '陷'],
+        '巨门': ['旺', '旺', '庙', '庙', '陷', '陷', '旺', '陷', '庙', '庙', '陷', '旺'], // Modified standard
+        '天相': ['庙', '庙', '庙', '陷', '旺', '平', '庙', '得', '庙', '陷', '旺', '平'],
+        '天梁': ['庙', '旺', '庙', '庙', '旺', '陷', '庙', '旺', '陷', '得', '旺', '陷'],
+        '七杀': ['旺', '庙', '庙', '旺', '庙', '平', '旺', '庙', '庙', '旺', '旺', '平'],
+        '破军': ['庙', '旺', '陷', '陷', '旺', '平', '庙', '旺', '陷', '陷', '旺', '平']
+    };
+
+    class ZWDSChart {
+        constructor(dateStr, hourIdx, genderVal) {
+            this.gregorianDate = new Date(`${dateStr}T12:00:00`);
+            this.gender = parseInt(genderVal); // 1 male, 0 female
+            
+            // 1. Lunar Conversion
+            const solar = Solar.fromDate(this.gregorianDate);
+            this.lunar = solar.getLunar();
+            
+            this.lunarYear = this.lunar.getYear();
+            this.lunarMonth = this.lunar.getMonth();
+            this.lunarDay = this.lunar.getDay();
+            // Direct assignment from user selection (0-11)
+            this.lunarHourIdx = parseInt(hourIdx);
+
+            this.yearStemIdx = this.lunar.getYearGanIndex(); // 0=Jia
+            this.yearBranchIdx = this.lunar.getYearZhiIndex(); // 0=Zi
+            
+            this.chartData = [];
+            this.initChart();
+        }
+
+        initChart() {
+            let month = this.lunarMonth;
+            if (month < 0) month = -month; 
+            let hour = this.lunarHourIdx + 1; 
+            
+            let mingIndex = (2 + (month - 1) - (hour - 1)) % 12;
+            if (mingIndex < 0) mingIndex += 12;
+            
+            let shenIndex = (2 + (month - 1) + (hour - 1)) % 12;
+            
+            // 3. Setup 12 Palaces
+            for (let i = 0; i < 12; i++) {
+                let offset = (mingIndex - i) % 12;
+                if (offset < 0) offset += 12;
+                
+                let yinStemBase = (this.yearStemIdx % 5) * 2 + 2; 
+                if (yinStemBase > 9) yinStemBase -= 10;
+                
+                let distFromYin = offset - 2;
+                if (distFromYin < 0) distFromYin += 12;
+                
+                let palaceStem = (yinStemBase + distFromYin) % 10;
+                
+                this.chartData[offset] = {
+                    name: PALACE_NAMES[i], // i=0 Ming, i=1 Siblings...
+                    branch: EARTHLY_BRANCHES[offset],
+                    stem: HEAVENLY_STEMS[palaceStem],
+                    stars: [],
+                    isMing: (i === 0),
+                    isShen: (offset === shenIndex),
+                    bureau: 0 
+                };
+            }
+            
+            // 4. Five Element Bureau
+            const mingPalace = this.chartData[mingIndex];
+            const mingStemIdx = HEAVENLY_STEMS.indexOf(mingPalace.stem);
+            const mingBranchIdx = EARTHLY_BRANCHES.indexOf(mingPalace.branch);
+            
+            this.bureau = getBureau(mingStemIdx, mingBranchIdx);
+            
+            // 5. Place Zi Wei Star
+            let day = this.lunarDay;
+            let bureau = this.bureau;
+            
+            let Q, pos;
+            if (day % bureau === 0) {
+                Q = day / bureau;
+                pos = 2 + Q - 1;
+            } else {
+                let rem = day % bureau;
+                let add = bureau - rem; 
+                Q = (day + add) / bureau;
+                if (add % 2 !== 0) {
+                    pos = 2 + Q - 1 - add; 
+                } else {
+                    pos = 2 + Q - 1 + add; 
+                }
+            }
+            
+            while(pos < 0) pos += 12;
+            pos = pos % 12;
+            this.ziWeiIdx = pos;
+            
+            this.tianFuIdx = (4 - this.ziWeiIdx + 12) % 12;
+            
+            // 7. Distribute Stars
+            this.placeStars();
+            
+            // 8. Add Si Hua
+            this.placeSiHua();
+
+            // 9. Brightness
+            this.calcBrightness();
+        }
+        
+        placeStars() {
+            const place = (star, offset) => {
+                let idx = (this.ziWeiIdx + offset + 120) % 12; 
+                this.addStar(idx, star, 'main');
+            };
+            
+            place('紫微', 0);
+            place('天机', -1);
+            place('太阳', -3);
+            place('武曲', -4);
+            place('天同', -5);
+            place('廉贞', -8);
+            
+            const placeTF = (star, offset) => {
+                let idx = (this.tianFuIdx + offset + 120) % 12;
+                this.addStar(idx, star, 'main');
+            };
+            
+            placeTF('天府', 0);
+            placeTF('太阴', 1);
+            placeTF('贪狼', 2);
+            placeTF('巨门', 3);
+            placeTF('天相', 4);
+            placeTF('天梁', 5);
+            placeTF('七杀', 6);
+            placeTF('破军', 10);
+            
+            let zuoFu = (4 + (this.lunarMonth - 1)) % 12;
+            this.addStar(zuoFu, '左辅', 'lucky');
+            let youBi = (10 - (this.lunarMonth - 1) + 12) % 12;
+            this.addStar(youBi, '右弼', 'lucky');
+            
+            let wenChang = (10 - (this.lunarHourIdx) + 12) % 12;
+            this.addStar(wenChang, '文昌', 'lucky');
+            let wenQu = (4 + this.lunarHourIdx) % 12;
+            this.addStar(wenQu, '文曲', 'lucky');
+            
+            const luCunMap = {0:2, 1:3, 2:5, 3:6, 4:5, 5:6, 6:8, 7:9, 8:11, 9:0}; 
+            const luCunPos = luCunMap[this.yearStemIdx];
+            if (luCunPos !== undefined) {
+                this.addStar(luCunPos, '禄存', 'lucky');
+                this.addStar((luCunPos + 1) % 12, '擎羊', 'bad');
+                this.addStar((luCunPos - 1 + 12) % 12, '陀罗', 'bad');
+            }
+        }
+        
+        addStar(idx, name, category) {
+            this.chartData[idx].stars.push({ name, category, brightness: '平' });
+        }
+        
+        placeSiHua() {
+            const rules = SI_HUA_RULES[this.yearStemIdx];
+            if (!rules) return;
+            
+            this.chartData.forEach(palace => {
+                palace.stars.forEach(star => {
+                    if (star.name === rules.Lu) star.sihua = '禄';
+                    if (star.name === rules.Quan) star.sihua = '权';
+                    if (star.name === rules.Ke) star.sihua = '科';
+                    if (star.name === rules.Ji) star.sihua = '忌';
+                });
+            });
+        }
+        
+        calcBrightness() {
+            // Updated to use the correct table
+            this.chartData.forEach((palace, pIdx) => {
+                // pIdx corresponds to chartData structure, but we need Branch Index (0=Zi, 1=Chou...)
+                // palace.branch is the character. We need to map it back to index 0-11
+                const branchIdx = EARTHLY_BRANCHES.indexOf(palace.branch);
+
+                palace.stars.forEach(star => {
+                    if (star.category === 'main') {
+                        if (STAR_BRIGHTNESS_TABLE[star.name]) {
+                            star.brightness = STAR_BRIGHTNESS_TABLE[star.name][branchIdx];
+                        } else {
+                            star.brightness = '平'; // Default fallback
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Helper to serialize chart for AI
+        getSummary() {
+            let summary = `用户性别: ${this.gender === 1 ? '男' : '女'}。\n`;
+            summary += `五行局: ${this.bureau}局。\n`;
+            summary += `命盘结构:\n`;
+            
+            this.chartData.forEach(p => {
+                const starStr = p.stars.map(s => {
+                    let info = `${s.name}(${s.brightness})`;
+                    if (s.sihua) info += `[化${s.sihua}]`;
+                    return info;
+                }).join(', ');
+                summary += `- ${p.name} (${p.stem}${p.branch}): ${starStr || '无主星'}\n`;
+            });
+            return summary;
+        }
+    }
+
+    // --- LIFE K-LINE LOGIC ---
+    let latestLifeData = []; // Store calculated data for interaction
+
+    function getBaZiInfo(date, hourIdx) {
+        const d = new Date(date);
+        const hrs = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+        d.setHours(hrs[parseInt(hourIdx)] || 12);
+
+        const solar = Solar.fromDate(d);
+        const lunar = solar.getLunar();
+        const bazi = lunar.getEightChar();
+        
+        return {
+            dayStem: bazi.getDayGan(),
+            monthBranch: bazi.getMonthZhi(),
+            monthStem: bazi.getMonthGan(),
+            yearBranch: bazi.getYearZhi(),
+            baziObj: bazi,
+            lunar: lunar
+        };
+    }
+
+    function calculateLifeTrendData(birthDateStr, hourIdx, gender) {
+        // 1. Get Base Info
+        const d = new Date(birthDateStr);
+        const hrs = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+        d.setHours(hrs[parseInt(hourIdx)]);
+        
+        const solar = Solar.fromDate(d);
+        const lunar = solar.getLunar();
+        const eightChar = lunar.getEightChar();
+        
+        // 2. Determine "Useful God" / Favor Elements
+        const monthZhi = eightChar.getMonthZhi(); 
+        const dayGan = eightChar.getDayGan();
+        
+        // Simple Season check
+        const seasons = {
+            '寅': 'Spring', '卯': 'Spring', '辰': 'Spring',
+            '巳': 'Summer', '午': 'Summer', '未': 'Summer',
+            '申': 'Autumn', '酉': 'Autumn', '戌': 'Autumn',
+            '亥': 'Winter', '子': 'Winter', '丑': 'Winter'
+        };
+        const season = seasons[monthZhi];
+        
+        let favorElements = [];
+        if (season === 'Winter') favorElements = ['火', '木']; 
+        else if (season === 'Summer') favorElements = ['水', '金']; 
+        else if (season === 'Spring') favorElements = ['火', '金']; 
+        else if (season === 'Autumn') favorElements = ['水', '木']; 
+        
+        // 3. Da Yun Calculation
+        const yun = lunar.getEightChar().getYun(parseInt(gender));
+        const daYunArr = yun.getDaYun();
+        
+        // FIX: yun.getStartAge() does not exist. Use the start age of the first Da Yun.
+        let qiYunAge = 0;
+        if (daYunArr.length > 0) {
+            qiYunAge = daYunArr[0].getStartAge();
+        }
+
+        let kLineData = [];
+        
+        const elMap = {
+            '甲':'木','乙':'木','寅':'木','卯':'木',
+            '丙':'火','丁':'火','巳':'火','午':'火',
+            '戊':'土','己':'土','辰':'土','戌':'土','丑':'土','未':'土',
+            '庚':'金','辛':'金','申':'金','酉':'金',
+            '壬':'水','癸':'水','亥':'水','子':'水'
+        };
+
+        // Loop through all Da Yuns
+        for (let i = 0; i < daYunArr.length; i++) { 
+            const dy = daYunArr[i]; 
+            if (!dy) continue; 
+
+            // Only process if Da Yun includes ages >= Qi Yun Start Age
+            // The DaYun object's startAge might be 1-based, but we want to respect the calculated Qi Yun
+            // Actually, daYunArr generally starts listing from the first Da Yun cycle.
+            
+            // FIX: Use getGanZhi() string parsing
+            const daYunGanZhi = dy.getGanZhi();
+            const gan = daYunGanZhi.charAt(0);
+            const zhi = daYunGanZhi.charAt(1);
+            
+            let daYunScore = 0;
+            const ganEl = elMap[gan];
+            const zhiEl = elMap[zhi];
+            
+            if (favorElements.includes(ganEl)) daYunScore += 5;
+            else daYunScore -= 2;
+            
+            if (favorElements.includes(zhiEl)) daYunScore += 5;
+            else daYunScore -= 2;
+            
+            const clashes = {
+                '子':'午', '午':'子', '丑':'未', '未':'丑',
+                '寅':'申', '申':'寅', '卯':'酉', '酉':'卯',
+                '辰':'戌', '戌':'辰', '巳':'亥', '亥':'巳'
+            };
+            
+            let isClash = (clashes[monthZhi] === zhi);
+            
+            // FIX: Iterate through LiuNian array directly from getLiuNian()
+            const liunians = dy.getLiuNian(); 
+            
+            for (let j = 0; j < liunians.length; j++) {
+                const liunian = liunians[j];
+                const a = liunian.getAge(); 
+                
+                // IMPORTANT: Filter out ages before Qi Yun
+                if (a < qiYunAge) continue;
+                if (a > 100) break;
+                
+                const lnGanZhi = liunian.getGanZhi();
+                const lnGan = lnGanZhi.charAt(0);
+                const lnZhi = lnGanZhi.charAt(1);
+                
+                let yearlyMod = 0;
+                
+                if (favorElements.includes(elMap[lnGan])) yearlyMod += 5;
+                else yearlyMod -= 2;
+                if (favorElements.includes(elMap[lnZhi])) yearlyMod += 5;
+                else yearlyMod -= 2;
+                
+                if (clashes[monthZhi] === lnZhi) {
+                    yearlyMod -= 10;
+                }
+                
+                if (isClash) {
+                    yearlyMod += (Math.random() > 0.5 ? 8 : -8);
+                }
+                
+                let prevClose = kLineData.length > 0 ? kLineData[kLineData.length-1].close : 50;
+                let idealScore = 50 + (daYunScore * 2) + yearlyMod;
+                
+                let open = prevClose;
+                let close = open + (idealScore - open) * 0.3; 
+                
+                let volatility = 5;
+                if (isClash) volatility += 10;
+                if (clashes[lnZhi] === monthZhi) volatility += 10; 
+                
+                let high = Math.max(open, close) + Math.random() * volatility;
+                let low = Math.min(open, close) - Math.random() * volatility;
+                
+                if(high > 100) high = 100;
+                if(low < 0) low = 0;
+                
+                kLineData.push({
+                    age: a,
+                    year: liunian.getYear(),
+                    ganZhi: lnGanZhi,
+                    open: Math.floor(open),
+                    close: Math.floor(close),
+                    high: Math.floor(high),
+                    low: Math.floor(low),
+                    daYun: `${gan}${zhi}`
+                });
+            }
+        }
+        
+        latestLifeData = kLineData; 
+        return kLineData;
+    }
+
+    // --- LIFE K-LINE VISUALIZATION ---
+    function renderLifeKLine(data, highlightIndex = -1) {
+        const canvas = document.getElementById('lifeChart');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        
+        const w = rect.width;
+        const h = rect.height;
+        
+        // Style
+        ctx.fillStyle = "#0b0d12";
+        ctx.fillRect(0, 0, w, h);
+        
+        // Dimensions
+        const padding = 20;
+        const paddingBottom = 40; // Extra space for X-axis
+        const graphW = w - padding * 2;
+        const graphH = h - padding - paddingBottom;
+        const barW = graphW / data.length;
+
+        // Grid
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 1;
+        // Horizontal
+        for(let i=0; i<=5; i++) {
+            let y = padding + i * (graphH/5);
+            ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(w - padding, y); ctx.stroke();
+        }
+        
+        // Draw Candles
+        data.forEach((d, i) => {
+            const x = padding + i * barW;
+            // Map 0-100 score to Height (Flip Y)
+            const mapY = (val) => h - paddingBottom - (val / 100 * graphH);
+            
+            const yOpen = mapY(d.open);
+            const yClose = mapY(d.close);
+            const yHigh = mapY(d.high);
+            const yLow = mapY(d.low);
+            
+            // Color
+            const isRise = d.close >= d.open;
+            ctx.fillStyle = isRise ? "#ef4444" : "#10b981"; // Red : Green
+            ctx.strokeStyle = isRise ? "#ef4444" : "#10b981";
+            
+            // Highlight Logic
+            if (i === highlightIndex) {
+                // Crosshair Vertical Line
+                ctx.save();
+                ctx.strokeStyle = "#ffffff";
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x + barW/2, padding);
+                ctx.lineTo(x + barW/2, h - paddingBottom);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Wick
+            ctx.beginPath();
+            ctx.moveTo(x + barW/2, yHigh);
+            ctx.lineTo(x + barW/2, yLow);
+            ctx.stroke();
+            
+            // Body
+            const bodyH = Math.abs(yClose - yOpen);
+            const bodyY = Math.min(yOpen, yClose);
+            // Ensure minimum width and height for visibility on small screens
+            ctx.fillRect(x + 0.5, bodyY, Math.max(barW - 1, 0.5), Math.max(bodyH, 1)); 
+
+            // X-Axis Labels (Fixed: 10 to 80, every 10 years)
+            if (d.age >= 10 && d.age <= 80 && d.age % 10 === 0) {
+                ctx.fillStyle = "#94a3b8"; // Slate-400
+                ctx.font = "10px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(d.age + "岁", x + barW/2, h - 10);
+            }
+        });
+        
+        // Draw Trend Line
+        ctx.beginPath();
+        ctx.strokeStyle = "#fbbf24"; // Gold
+        ctx.lineWidth = 2;
+        data.forEach((d, i) => {
+            const x = padding + i * barW + barW/2;
+            const mapY = (val) => h - paddingBottom - (val / 100 * graphH);
+            const y = mapY(d.close);
+            if (i===0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Draw Tooltip if highlighted
+        if (highlightIndex !== -1 && data[highlightIndex]) {
+            const d = data[highlightIndex];
+            const x = padding + highlightIndex * barW + barW/2;
+            const y = 50; // Fixed top position for tooltip
+
+            // Tooltip Background
+            const tipText = `${d.age}岁 · ${d.year}年 (${d.ganZhi}) · 大运: ${d.daYun}`;
+            ctx.font = "bold 14px sans-serif";
+            const textWidth = ctx.measureText(tipText).width;
+            
+            // Clamp tooltip position
+            let tipX = x - textWidth/2;
+            if (tipX < padding) tipX = padding;
+            if (tipX + textWidth > w - padding) tipX = w - padding - textWidth;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+            ctx.fillRect(tipX - 10, y - 20, textWidth + 20, 30);
+            ctx.strokeStyle = "#fbbf24";
+            ctx.strokeRect(tipX - 10, y - 20, textWidth + 20, 30);
+
+            // Tooltip Text
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "left";
+            ctx.fillText(tipText, tipX, y);
+        }
+    }
+
+    function setupChartInteraction() {
+        const canvas = document.getElementById('lifeChart');
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (latestLifeData.length === 0) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            
+            const padding = 20;
+            const graphW = rect.width - padding * 2;
+            const barW = graphW / latestLifeData.length;
+            
+            let index = Math.floor((x - padding) / barW);
+            
+            // Clamp index
+            if (index < 0) index = 0;
+            if (index >= latestLifeData.length) index = latestLifeData.length - 1;
+            
+            renderLifeKLine(latestLifeData, index);
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            renderLifeKLine(latestLifeData, -1); // Reset
+        });
+    }
+
+    function toggleLifePanel() {
+        const panel = document.getElementById('lifePanel');
+        if (panel.style.display === 'flex') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'flex';
+            document.getElementById('dailyPanel').style.display = 'none';
+            document.getElementById('chatWindow').style.display = 'none';
+            
+            // Init
+            generateLifeChartLogic();
+            setupChartInteraction(); // Ensure listeners are attached
+        }
+    }
+
+    function generateLifeChartLogic() {
+        const dateStr = document.getElementById('birthDate').value;
+        const hourIdx = document.getElementById('birthHour').value;
+        const gender = document.getElementById('gender').value;
+        
+        const data = calculateLifeTrendData(dateStr, hourIdx, gender);
+        renderLifeKLine(data);
+        
+        // Generate Analysis Text based on PDF Logic
+        const info = getBaZiInfo(dateStr, hourIdx);
+        // FIX: Remove .getName()
+        const monthZhi = info.monthBranch; 
+        const dayGan = info.dayStem;
+        
+        // Current Age (Approx)
+        const nowYear = new Date().getFullYear();
+        const birthYear = new Date(dateStr).getFullYear();
+        const currentAge = nowYear - birthYear;
+        
+        // Find current Da Yun
+        const currentData = data.find(d => d.age === currentAge) || data[data.length-1];
+        const daYunStr = currentData ? currentData.daYun : "--";
+        
+        const analysisDiv = document.getElementById('lifeAnalysisText');
+        analysisDiv.innerHTML = `
+            <div class="mb-2"><strong class="text-white">当前大运:</strong> <span class="text-yellow-400 text-lg">${daYunStr}</span> (约${currentAge}岁)</div>
+            <div class="mb-2"><strong class="text-white">月令提纲:</strong> ${monthZhi}月 (格局核心)</div>
+            <div>
+                <strong class="text-blue-400">大师批注:</strong> 
+                此造日元为<span class="text-white">${dayGan}</span>，生于${monthZhi}月。
+                依据《子平真诠》，月令为提纲之府，决定人生格局上限。
+                当前行运至<span class="text-yellow-400">${daYunStr}</span>，
+                需注意大运地支与月令的刑冲合害关系。
+                若K线震荡剧烈（红绿交替频繁），代表流年引动了局中隐患，名为“运冲提纲”或“岁运并临”，
+                建议该阶段守成主静，顺应天时。
+            </div>
+        `;
+    }
+
+    // --- 2. THREE.JS VISUALIZATION ---
+
+    let scene, camera, renderer, controls, raycaster, mouse;
+    let chartObj = new THREE.Group();
+    let connectionGroup = new THREE.Group(); // New group for relationship lines
+    let coreMesh;
+    let coreUniforms; // Global uniform reference
+    let sectorMeshes = []; // Store meshes for easy access
+
+    function init3D() {
+        const container = document.getElementById('canvas-container');
+        
+        scene = new THREE.Scene();
+        // Deep Space Fog
+        scene.fog = new THREE.FogExp2(0x02040a, 0.0015);
+
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, -60, 45);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        container.appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 150;
+        controls.minDistance = 20;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x222244);
+        scene.add(ambientLight);
+        
+        const sunLight = new THREE.PointLight(0xffaa00, 2, 200);
+        sunLight.position.set(0, 0, 0);
+        scene.add(sunLight);
+        
+        const blueLight = new THREE.PointLight(0x0088ff, 1.5, 100);
+        blueLight.position.set(30, 30, 30);
+        scene.add(blueLight);
+
+        // --- PARTICLE SYSTEM CORE REPLACEMENT ---
+        
+        // 1. Generate Particles on Sphere Surface
+        const particleCount = 20000;
+        const positions = new Float32Array(particleCount * 3);
+        const randoms = new Float32Array(particleCount);
+        
+        const radius = 3.8; 
+        
+        for (let i = 0; i < particleCount; i++) {
+            // Fibonacci Sphere Algorithm for even distribution
+            const k = i + 0.5;
+            const phi = Math.acos(1 - 2 * k / particleCount);
+            const theta = Math.PI * (1 + Math.sqrt(5)) * k;
+            
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.sin(phi) * Math.sin(theta);
+            const z = radius * Math.cos(phi);
+            
+            positions[i * 3] = x;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = z;
+            
+            randoms[i] = Math.random();
+        }
+        
+        const coreGeo = new THREE.BufferGeometry();
+        coreGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        coreGeo.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+
+        coreUniforms = {
+            uTime: { value: 0 },
+            uColor1: { value: new THREE.Color(0x050505) }, // Yin: Ink Black
+            uColor2: { value: new THREE.Color(0xffffff) }  // Yang: Pure White
+        };
+
+        const vertexShader = `
+            uniform float uTime;
+            attribute float aRandom;
+            varying vec3 vPos;
+            varying float vRandom;
+
+            // Simplex Noise for vertex displacement
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+            float snoise(vec3 v) {
+                const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+                const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+                vec3 i  = floor(v + dot(v, C.yyy) );
+                vec3 x0 = v - i + dot(i, C.xxx) ;
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min( g.xyz, l.zxy );
+                vec3 i2 = max( g.xyz, l.zxy );
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy; 
+                vec3 x3 = x0 - D.yyy;      
+                i = mod289(i);
+                vec4 p = permute( permute( permute(
+                            i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                        + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                        + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                float n_ = 0.142857142857; 
+                vec3  ns = n_ * D.wyz - D.xzx;
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_ );    
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                vec4 b0 = vec4( x.xy, y.xy );
+                vec4 b1 = vec4( x.zw, y.zw );
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+                vec3 p0 = vec3(a0.xy,h.x);
+                vec3 p1 = vec3(a0.zw,h.y);
+                vec3 p2 = vec3(a1.xy,h.z);
+                vec3 p3 = vec3(a1.zw,h.w);
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x;
+                p1 *= norm.y;
+                p2 *= norm.z;
+                p3 *= norm.w;
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                            dot(p2,x2), dot(p3,x3) ) );
+            }
+
+            void main() {
+                vRandom = aRandom;
+                
+                // Add "breathing" and flow to particles
+                vec3 noisePos = position * 0.5 + vec3(0.0, uTime * 0.2, 0.0);
+                float noiseVal = snoise(noisePos);
+                
+                // Displace particles slightly along normal
+                vec3 newPos = position + normalize(position) * noiseVal * 0.2;
+                
+                vPos = newPos;
+                
+                vec4 mvPosition = modelViewMatrix * vec4(newPos, 1.0);
+                gl_Position = projectionMatrix * mvPosition;
+                
+                // Dynamic size attenuation
+                // Particles pulsate slightly
+                float sizePulse = 1.0 + sin(uTime * 2.0 + aRandom * 10.0) * 0.3;
+                // Slightly larger base size for solid fill
+                gl_PointSize = (6.0 * sizePulse + aRandom * 2.0) * (30.0 / -mvPosition.z);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            uniform vec3 uColor1; // Black
+            uniform vec3 uColor2; // White
+            
+            varying vec3 vPos;
+            varying float vRandom;
+
+            // Simple noise
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+            }
+            
+            // Simplex Noise 2D for pattern flow
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+            float snoise(vec2 v) {
+                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                vec2 i  = floor(v + dot(v, C.yy) );
+                vec2 x0 = v - i + dot(i, C.xx);
+                vec2 i1;
+                i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                vec4 x12 = x0.xyxy + C.xxzz;
+                x12.xy -= i1;
+                i = mod289(i);
+                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                m = m*m ; m = m*m ;
+                vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                vec3 h = abs(x) - 0.5;
+                vec3 ox = floor(x + 0.5);
+                vec3 a0 = x - ox;
+                m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                vec3 g;
+                g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                return 130.0 * dot(m, g);
+            }
+
+            void main() {
+                // Circular particle shape
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                if(dist > 0.5) discard;
+                
+                // --- Tai Chi Logic ---
+                vec3 normPos = normalize(vPos);
+                
+                // Rotate the pattern to simulate spin
+                float angle = -uTime * 0.2; 
+                float cosA = cos(angle);
+                float sinA = sin(angle);
+                vec2 rotated = vec2(
+                    normPos.x * cosA - normPos.y * sinA,
+                    normPos.x * sinA + normPos.y * cosA
+                );
+                
+                float x = rotated.x;
+                float y = rotated.y;
+                
+                // 3. Digital/Glitch Boundary
+                // Use stepped time for jerky movement
+                float timeStep = floor(uTime * 15.0) / 15.0;
+                // High frequency noise for "static" look
+                float noise = snoise(vec2(y * 10.0, timeStep)) * 0.1;
+                // Blocky noise
+                float blocky = floor(noise * 20.0) / 20.0;
+                
+                // S-Curve
+                float curve = -sin(y * 3.14159) * 0.4;
+                float boundary = curve + blocky;
+                
+                // Mixing
+                float mixVal = step(boundary, x);
+                
+                // Eyes
+                vec2 topEyePos = vec2(0.0, 0.5); 
+                vec2 botEyePos = vec2(0.0, -0.5);
+                
+                // Reduced eye wobble for stability
+                float eyeNoise = snoise(vec2(uTime * 2.0, 0.0)) * 0.005;
+                
+                float dTop = length(vec2(x, y) - topEyePos);
+                float dBot = length(vec2(x, y) - botEyePos);
+                
+                float rEye = 0.12 + eyeNoise;
+                
+                float inTopEye = 1.0 - smoothstep(rEye - 0.02, rEye + 0.02, dTop);
+                float inBotEye = 1.0 - smoothstep(rEye - 0.02, rEye + 0.02, dBot);
+                
+                // Combine Pattern
+                float finalMix = clamp(mixVal - inTopEye + inBotEye, 0.0, 1.0);
+                
+                // --- Color Composition & Alpha ---
+                
+                // Default soft particle edge for smoothness
+                float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+                vec3 col = vec3(0.0);
+
+                if (finalMix > 0.5) {
+                    // --- YANG (WHITE) ---
+                    // Add a bit of randomness
+                    col = vec3(0.9, 0.95, 1.0) * 1.5; // Hyper Bright White
+                    // Core white
+                    col += vec3(1.0) * smoothstep(0.0, 0.2, 0.5 - dist);
+                    
+                    // Glow
+                    alpha *= 0.8 + 0.2 * sin(uTime * 5.0 + vRandom * 10.0);
+                } else {
+                    // --- YIN (BLACK) ---
+                    // SOLID BLACK ENTITY
+                    col = vec3(0.02, 0.02, 0.02); // Deep Ink Base
+                    
+                    // Add Digital Grid lines (Subtle Grey)
+                    float gridX = step(0.95, fract(vPos.x * 2.0 + uTime * 0.1));
+                    float gridY = step(0.95, fract(vPos.y * 2.0));
+                    col += vec3(0.3) * (gridX + gridY) * 0.5; // Grey Grid
+                    
+                    // Make it opaque / solid
+                    // Flatten the soft edge to make it look harder/solid
+                    alpha = smoothstep(0.0, 0.2, alpha); 
+                    
+                    // Boost alpha to ensure it blocks background
+                    alpha = 1.0; 
+                }
+                
+                // Global Scanlines (Monochrome)
+                float scan = sin(gl_FragCoord.y * 0.5 + uTime * 10.0);
+                if(scan > 0.9) col *= 1.3;
+                else col *= 0.9;
+                
+                gl_FragColor = vec4(col, alpha);
+            }
+        `;
+
+        const coreMat = new THREE.ShaderMaterial({
+            uniforms: coreUniforms,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            transparent: true,
+            depthWrite: false, 
+            blending: THREE.NormalBlending // Changed to NormalBlending for Solid Black
+        });
+
+        // Use Points instead of Mesh
+        coreMesh = new THREE.Points(coreGeo, coreMat);
+        
+        // Add a subtle outer glow sprite to help it integrate
+        const coreGlow = createGlowSprite(0xaaccff, 18);
+        coreGlow.material.opacity = 0.15;
+        coreMesh.add(coreGlow);
+        
+        scene.add(coreMesh);
+
+        addBackgroundStars();
+        addSpaceDust();
+        
+        // FIX: Add connectionGroup to chartObj so it rotates WITH the sectors
+        chartObj.add(connectionGroup); 
+        scene.add(chartObj);
+
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+        window.addEventListener('resize', onWindowResize, false);
+        window.addEventListener('mousemove', onMouseMove, false);
+        window.addEventListener('click', onMouseClick, false);
+
+        animate();
+    }
+
+    function addBackgroundStars() {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        const colors = [];
+        const colorObj = new THREE.Color();
+
+        for (let i = 0; i < 3000; i++) {
+            vertices.push(
+                THREE.MathUtils.randFloatSpread(400),
+                THREE.MathUtils.randFloatSpread(400),
+                THREE.MathUtils.randFloatSpread(400)
+            );
+            colorObj.setHSL(0.6 + Math.random() * 0.1, 0.8, 0.5 + Math.random() * 0.5);
+            colors.push(colorObj.r, colorObj.g, colorObj.b);
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        
+        const material = new THREE.PointsMaterial({ size: 0.6, vertexColors: true, transparent: true, opacity: 0.8 });
+        const stars = new THREE.Points(geometry, material);
+        scene.add(stars);
+    }
+    
+    function addSpaceDust() {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        for (let i = 0; i < 1500; i++) {
+            const r = 30 + Math.random() * 60;
+            const theta = Math.random() * Math.PI * 2;
+            const x = r * Math.cos(theta);
+            const y = r * Math.sin(theta);
+            const z = (Math.random() - 0.5) * 15;
+            vertices.push(x, y, z);
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        const material = new THREE.PointsMaterial({ color: 0x4466aa, size: 0.4, transparent: true, opacity: 0.4 });
+        const dust = new THREE.Points(geometry, material);
+        dust.name = "dust";
+        scene.add(dust);
+    }
+
+    function clearChart3D() {
+        while(chartObj.children.length > 0){ 
+            chartObj.remove(chartObj.children[0]); 
+        }
+        sectorMeshes = [];
+        while(connectionGroup.children.length > 0){
+            connectionGroup.remove(connectionGroup.children[0]);
+        }
+        chartObj.add(connectionGroup); // Re-add connectionGroup
+    }
+
+    function createSectorMesh(index, data) {
+        // Floating Island Dimensions
+        const radiusInner = 16;
+        const radiusOuter = 28;
+        const segments = 12;
+        const thetaStart = (index * 2 * Math.PI) / segments;
+        const thetaLength = (2 * Math.PI) / segments - 0.15; // Gap for floating effect
+
+        const shape = new THREE.Shape();
+        shape.absarc(0, 0, radiusOuter, thetaStart, thetaStart + thetaLength, false);
+        shape.absarc(0, 0, radiusInner, thetaStart + thetaLength, thetaStart, true);
+
+        const extrudeSettings = { 
+            depth: 1.5, 
+            bevelEnabled: true, 
+            bevelThickness: 0.2, 
+            bevelSize: 0.2, 
+            bevelSegments: 3 
+        };
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        
+        let baseColor = data.isMing ? 0x0077ff : 0x223344;
+        let emissiveColor = data.isMing ? 0x002244 : 0x000000;
+        let opacityVal = 0.6;
+        
+        if (data.isShen) { baseColor = 0x00aa88; opacityVal = 0.7; }
+
+        // Holographic Material
+        const material = new THREE.MeshPhysicalMaterial({ 
+            color: baseColor, 
+            transparent: true, 
+            opacity: opacityVal,
+            metalness: 0.8,
+            roughness: 0.2,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1,
+            emissive: emissiveColor,
+            emissiveIntensity: 0.5,
+            side: THREE.DoubleSide
+        });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.userData = { id: index, data: data, originalColor: baseColor, originalEmissive: emissiveColor }; 
+        
+        const labelText = data.name + '\n' + data.stem + data.branch;
+        const sprite = createTextSprite(labelText, data.isMing ? 0xffd700 : 0xaaccff);
+        
+        const angle = thetaStart + thetaLength / 2;
+        const r = (radiusInner + radiusOuter) / 2;
+        sprite.position.set(r * Math.cos(angle), r * Math.sin(angle), 5); // Lift label
+        mesh.add(sprite);
+
+        // Highlight Ming Palace Base
+        if (data.isMing) {
+            const glow = createGlowSprite(0x0077ff, 12);
+            glow.position.set(r * Math.cos(angle), r * Math.sin(angle), -2);
+            mesh.add(glow);
+        }
+
+        addStarsToSector(mesh, data.stars, angle, r);
+        
+        sectorMeshes[index] = mesh; // Store reference
+        return mesh;
+    }
+
+    function addStarsToSector(parentMesh, stars, angle, radius) {
+        stars.forEach((star, i) => {
+            let size = 0.4;
+            let color = 0xffffff;
+            let intensity = 1.0;
+            
+            if (star.category === 'main') {
+                size = 1.0; 
+                color = MAIN_STARS_INFO[star.name] ? MAIN_STARS_INFO[star.name].color : 0xffffff;
+                intensity = 1.5;
+                
+                // --- VISUAL BRIGHTNESS LOGIC ---
+                // Adjust size and intensity based on brightness level
+                switch (star.brightness) {
+                    case '庙':
+                        size = 1.6; // Large
+                        intensity = 4.0; // Very bright
+                        break;
+                    case '旺':
+                        size = 1.3;
+                        intensity = 2.5;
+                        break;
+                    case '得':
+                    case '利':
+                        size = 1.1;
+                        intensity = 1.8;
+                        break;
+                    case '平':
+                        size = 0.9;
+                        intensity = 1.0;
+                        break;
+                    case '陷':
+                    case '闲':
+                        size = 0.6; // Small
+                        intensity = 0.4; // Dim
+                        // Desaturate/Darken color for Xian state
+                        const c = new THREE.Color(color);
+                        c.lerp(new THREE.Color(0x333333), 0.5); 
+                        color = c.getHex();
+                        break;
+                    default:
+                        size = 1.0;
+                        intensity = 1.0;
+                }
+
+            } else if (star.category === 'bad') {
+                color = 0xff4444;
+                size = 0.5;
+            } else if (star.category === 'lucky') {
+                color = 0x44ff88;
+                size = 0.5;
+            }
+            
+            const geometry = new THREE.SphereGeometry(size, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: color, 
+                emissive: color, 
+                emissiveIntensity: intensity,
+                roughness: 0.1
+            });
+            const starMesh = new THREE.Mesh(geometry, material);
+            
+            // 3D Floating layout
+            let rOffset = (Math.random() - 0.5) * 6;
+            let hOffset = 4 + Math.random() * 4; // Float above platform
+            let aOffset = (Math.random() - 0.5) * 0.15;
+            
+            let finalR = radius + rOffset;
+            let finalA = angle + aOffset;
+            
+            starMesh.position.set(finalR * Math.cos(finalA), finalR * Math.sin(finalA), hOffset);
+            
+            // Scaled Glow based on brightness
+            const glow = createGlowSprite(color, size * 6);
+            glow.position.copy(starMesh.position);
+            
+            parentMesh.add(starMesh);
+            parentMesh.add(glow);
+            
+            // Si Hua Ring
+            if (star.sihua) {
+                const ringGeo = new THREE.RingGeometry(size * 1.5, size * 1.8, 32);
+                let ringColor = 0xffffff;
+                if(star.sihua === '禄') ringColor = 0x4cc9f0;
+                if(star.sihua === '权') ringColor = 0x4361ee;
+                if(star.sihua === '科') ringColor = 0xb5179e;
+                if(star.sihua === '忌') ringColor = 0xf72585;
+                
+                // FIX: depthWrite: false to prevent black blocks/occlusion
+                const ringMat = new THREE.MeshBasicMaterial({ 
+                    color: ringColor, 
+                    side: THREE.DoubleSide, 
+                    transparent: true, 
+                    opacity: 0.8,
+                    depthWrite: false 
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.position.copy(starMesh.position);
+                ring.lookAt(0,0,100); 
+                parentMesh.add(ring);
+            }
+        });
+    }
+
+    function createTextSprite(message, color) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 512;
+        canvas.height = 256;
+        
+        // --- Fix: Ensure canvas is clean ---
+        context.clearRect(0, 0, canvas.width, canvas.height); 
+        
+        context.font = "Bold 50px 'Noto Sans SC'";
+        context.fillStyle = "rgba(255,255,255,1)";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.shadowColor = "#000";
+        context.shadowBlur = 15;
+        context.lineWidth = 4;
+        
+        const lines = message.split('\n');
+        lines.forEach((line, i) => {
+            if (i===0) {
+                context.fillStyle = '#' + new THREE.Color(color).getHexString();
+                context.font = "Bold 60px 'Noto Sans SC'";
+                context.fillText(line, 256, 100);
+            } else {
+                context.fillStyle = "#cccccc";
+                context.font = "40px 'Noto Sans SC'";
+                context.fillText(line, 256, 160);
+            }
+        });
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        // FIX: depthWrite: false to prevent black box artifacts around text
+        const spriteMaterial = new THREE.SpriteMaterial({ 
+            map: texture, 
+            transparent: true,
+            depthWrite: false 
+        });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(8, 4, 1);
+        return sprite;
+    }
+
+    function createGlowSprite(color, scale) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        
+        // --- Fix: Proper Gradient Interpolation ---
+        const c = new THREE.Color(color);
+        const r = Math.floor(c.r * 255);
+        const g = Math.floor(c.g * 255);
+        const b = Math.floor(c.b * 255);
+        
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
+        gradient.addColorStop(0.4, `rgba(${r},${g},${b},0.5)`); 
+        gradient.addColorStop(1, `rgba(${r},${g},${b},0)`); // Fade to transparent color, NOT black
+        
+        ctx.fillStyle = gradient;
+        ctx.clearRect(0,0,64,64); // Ensure clean
+        ctx.fillRect(0, 0, 64, 64);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ 
+            map: texture, 
+            transparent: true, 
+            blending: THREE.AdditiveBlending, 
+            depthWrite: false 
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(scale, scale, 1);
+        return sprite;
+    }
+    
+    // --- 4. SAN FANG SI ZHENG VISUALIZATION ---
+    function visualizeRelationships(centerIndex) {
+        // Clear old connections
+        while(connectionGroup.children.length > 0){
+            connectionGroup.remove(connectionGroup.children[0]);
+        }
+        
+        // Identifying indices
+        const trine1 = (centerIndex + 4) % 12;
+        const trine2 = (centerIndex + 8) % 12;
+        const opposite = (centerIndex + 6) % 12;
+        const activeIndices = [centerIndex, trine1, trine2, opposite];
+        
+        // Dim all non-active sectors, highlight active ones
+        sectorMeshes.forEach((mesh, i) => {
+            if (activeIndices.includes(i)) {
+                mesh.material.opacity = 0.8;
+                mesh.material.emissiveIntensity = 0.8;
+                if (i === centerIndex) mesh.material.emissive.setHex(0xffaa00); // Main focus
+                else if (i === opposite) mesh.material.emissive.setHex(0xff4444); // Opposite (Clash)
+                else mesh.material.emissive.setHex(0x00aaff); // Trines (Harmony)
+            } else {
+                mesh.material.opacity = 0.2;
+                mesh.material.emissiveIntensity = 0.1;
+                mesh.material.emissive.setHex(mesh.userData.originalEmissive);
+            }
+        });
+        
+        // Helper to get sector position (Corrected for gap and rotation local space)
+        const getPos = (idx) => {
+            // Must match createSectorMesh logic exactly
+            const segments = 12;
+            const thetaStart = (idx * 2 * Math.PI) / segments;
+            const thetaLength = (2 * Math.PI) / segments - 0.15; // Gap
+            
+            // Calculate exact visual center of the wedge
+            const angle = thetaStart + thetaLength / 2;
+            
+            const r = 22; // Mid radius (between 16 and 28)
+            // Z height > 1.5 (sector depth) to prevent clipping
+            return new THREE.Vector3(r * Math.cos(angle), r * Math.sin(angle), 3); 
+        };
+        
+        const pCenter = getPos(centerIndex);
+        const pTrine1 = getPos(trine1);
+        const pTrine2 = getPos(trine2);
+        const pOpposite = getPos(opposite);
+        
+        // 1. Draw Triangle (Solid Lines) - San He
+        const trianglePoints = [pCenter, pTrine1, pTrine2, pCenter];
+        const triGeo = new THREE.BufferGeometry().setFromPoints(trianglePoints);
+        const triMat = new THREE.LineBasicMaterial({ color: 0x00aaff, linewidth: 2, transparent: true, opacity: 0.8 });
+        const triangle = new THREE.Line(triGeo, triMat);
+        connectionGroup.add(triangle);
+        
+        // 2. Draw Opposition Line (Dashed) - Dui Gong
+        const oppPoints = [pCenter, pOpposite];
+        const oppGeo = new THREE.BufferGeometry().setFromPoints(oppPoints);
+        const oppMat = new THREE.LineDashedMaterial({ color: 0xff4444, dashSize: 1, gapSize: 0.5, scale: 1, transparent: true, opacity: 0.8 });
+        const oppLine = new THREE.Line(oppGeo, oppMat);
+        oppLine.computeLineDistances();
+        connectionGroup.add(oppLine);
+        
+        // Add glowing nodes at vertices
+        [pCenter, pTrine1, pTrine2, pOpposite].forEach((pos, idx) => {
+            const color = idx === 3 ? 0xff4444 : (idx === 0 ? 0xffaa00 : 0x00aaff);
+            const node = createGlowSprite(color, 8);
+            node.position.copy(pos);
+            connectionGroup.add(node);
+        });
+    }
+
+    // --- 3. APP LOGIC ---
+
+    let currentChart = null;
+    let selectedPalaceData = null;
+
+    function generateChart() {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('loading').style.opacity = 1;
+        
+        setTimeout(() => {
+            const date = document.getElementById('birthDate').value;
+            const hourIdx = document.getElementById('birthHour').value;
+            const gender = document.getElementById('gender').value;
+
+            try {
+                currentChart = new ZWDSChart(date, hourIdx, gender);
+                
+                const bureaus = ['水二局', '木三局', '金四局', '土五局', '火六局'];
+                let bIdx = -1;
+                if(currentChart.bureau === 2) bIdx = 0;
+                if(currentChart.bureau === 3) bIdx = 1;
+                if(currentChart.bureau === 4) bIdx = 2;
+                if(currentChart.bureau === 5) bIdx = 3;
+                if(currentChart.bureau === 6) bIdx = 4;
+                
+                const bText = bIdx >= 0 ? bureaus[bIdx] : '未知局';
+                const bDiv = document.getElementById('bureau-info');
+                bDiv.innerHTML = `<span>五行: <strong class="text-white">${bText}</strong></span> <span>命主: <strong class="text-white">${currentChart.chartData[0].stem}${currentChart.chartData[0].branch}</strong></span>`;
+                bDiv.classList.remove('hidden');
+
+                // Clear Chat history on new chart
+                document.getElementById('chatMessages').innerHTML = '<div class="msg msg-ai">你好！我是你的 AI 命理助手。我已经读取了你的全盘数据，你可以问我任何关于事业、感情或流年的问题。</div>';
+
+                renderChart3D(currentChart);
+            } catch (e) {
+                console.error(e);
+                alert("生成失败，请检查输入或控制台日志。");
+            }
+            
+            document.getElementById('loading').style.opacity = 0;
+            setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 500);
+        }, 800);
+    }
+
+    function renderChart3D(chart) {
+        clearChart3D();
+        
+        chart.chartData.forEach((data, index) => {
+            const sector = createSectorMesh(index, data);
+            chartObj.add(sector);
+        });
+    }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    }
+
+    function onMouseClick(event) {
+        if (!currentChart) return;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(chartObj.children, true); 
+        
+        if (intersects.length > 0) {
+            let target = intersects[0].object;
+            // Find parent group/mesh that has data
+            while(target.parent && target.parent !== chartObj && !target.userData.data) {
+                target = target.parent;
+            }
+
+            if (target.userData && target.userData.data) {
+                const centerIndex = target.userData.id;
+                
+                // Show panel logic
+                const panel = document.getElementById('infoPanel');
+                if (panel.classList.contains('collapsed')) {
+                    toggleInfoPanel(); // Auto expand
+                }
+                showInfoPanel(target.userData.data);
+                
+                // Trigger Visual Resonance (San Fang Si Zheng)
+                visualizeRelationships(centerIndex);
+            }
+        } else {
+            // Reset if clicked empty space
+            // Optional: resetVisuals();
+        }
+    }
+    
+    function showInfoPanel(data) {
+        selectedPalaceData = data; 
+        const panel = document.getElementById('infoPanel');
+        panel.classList.add('active');
+        
+        document.getElementById('panelTitle').innerText = data.name + ' (' + data.stem + data.branch + ')';
+        
+        // --- Feature: User-Friendly Palace Descriptions ---
+        const PALACE_DESC_MAP = {
+            '命宫': '核心人格 · 天赋特质 · 命运总览',
+            '兄弟': '知心好友 · 合作伙伴 · 现金周转',
+            '夫妻': '感情模式 · 伴侣特质 · 婚姻状况',
+            '子女': '亲子关系 · 晚辈缘分 · 合伙事业',
+            '财帛': '赚钱能力 · 收入来源 · 理财观念',
+            '疾厄': '身体健康 · 潜意识 · 情绪压力',
+            '迁移': '对外形象 · 社交机遇 · 出行运势',
+            '仆役': '人际圈子 · 粉丝受众 · 朋友助力',
+            '官禄': '事业发展 · 职场表现 · 创业方向',
+            '田宅': '居住环境 · 房产运势 · 家庭氛围',
+            '福德': '精神享受 · 兴趣嗜好 · 财源起伏',
+            '父母': '长辈缘分 · 遗传基因 · 上司关系'
+        };
+
+        let subText = PALACE_DESC_MAP[data.name] || '未知领域';
+        
+        // Prefix for Special Palaces
+        if (data.isMing) {
+            subText = '【本命核心】 ' + subText;
+            document.getElementById('panelSub').className = "text-xs text-yellow-300 font-mono font-bold";
+        } else if (data.isShen) {
+            subText = '【后天身宫】 ' + subText;
+            document.getElementById('panelSub').className = "text-xs text-green-300 font-mono font-bold";
+        } else {
+            document.getElementById('panelSub').className = "text-xs text-blue-300 font-mono";
+        }
+
+        document.getElementById('panelSub').innerText = subText;
+        
+        const list = document.getElementById('starList');
+        list.innerHTML = '';
+        
+        if (data.stars.length === 0) {
+            list.innerHTML = '<div class="text-gray-500 text-sm">此宫无主星 (借对宫星曜)</div>';
+        } else {
+            data.stars.sort((a,b) => {
+                const order = { 'main': 1, 'lucky': 2, 'bad': 3 };
+                return order[a.category] - order[b.category];
+            });
+
+            data.stars.forEach(star => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-white bg-opacity-10 p-2 rounded';
+                
+                let sihuaTag = '';
+                if (star.sihua) {
+                    const cls = {'禄':'sihua-lu', '权':'sihua-quan', '科':'sihua-ke', '忌':'sihua-ji'}[star.sihua];
+                    sihuaTag = `<span class="${cls} mr-1">[化${star.sihua}]</span>`;
+                }
+
+                let brightCls = 'star-ping';
+                if (star.brightness === '庙') brightCls = 'star-miao';
+                else if (star.brightness === '旺') brightCls = 'star-wang';
+                else if (star.brightness === '得') brightCls = 'star-de';
+                else if (star.brightness === '利') brightCls = 'star-li';
+                else if (star.brightness === '平') brightCls = 'star-ping';
+                else if (star.brightness === '陷') brightCls = 'star-xian';
+                else if (star.brightness === '闲') brightCls = 'star-xian'; // Map Xian(idle) to Xian(trap) style or create new
+
+                const starInfo = MAIN_STARS_INFO[star.name] || {};
+                const desc = starInfo.desc || '';
+
+                item.innerHTML = `
+                    <div>
+                        <span class="font-bold text-base" style="color:${starInfo.color||'#fff'}">${star.name}</span>
+                        ${sihuaTag}
+                        <div class="text-xs text-gray-400">${desc}</div>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="star-tag ${brightCls}">${star.brightness}</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+    }
+    
+    function toggleInputPanel() {
+        const panel = document.getElementById('inputPanel');
+        panel.classList.toggle('collapsed');
+    }
+
+    function toggleInfoPanel() {
+        const panel = document.getElementById('infoPanel');
+        panel.classList.toggle('collapsed');
+    }
+
+    // --- DAILY CALENDAR LOGIC ---
+    
+    // Modern Activity Generator with Personalization
+    function getModernYiJi(dateStr, chart) {
+        // Base hash from date
+        let hash = 0;
+        for (let i = 0; i < dateStr.length; i++) {
+            hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+            hash |= 0; 
+        }
+
+        // --- Personalization Logic ---
+        let userOffset = 0;
+        let starPersonality = "general"; // general, aggressive, gentle
+
+        if (chart) {
+            // 1. Unique ID based on chart structure
+            // ziWeiIdx (0-11) determines the star layout
+            // bureau (2-6) is the 5-element phase
+            userOffset = (chart.ziWeiIdx * 137) + (chart.bureau * 19);
+
+            // 2. Identify Personality based on Ming Palace Stars
+            const mingPalace = chart.chartData.find(p => p.isMing);
+            if (mingPalace) {
+                const stars = mingPalace.stars.map(s => s.name);
+                if (stars.includes('七杀') || stars.includes('破军') || stars.includes('贪狼')) {
+                    starPersonality = "aggressive"; // Slay/Break/Wolf
+                } else if (stars.includes('天同') || stars.includes('太阴') || stars.includes('天梁')) {
+                    starPersonality = "gentle"; 
+                }
+            }
+        }
+        
+        // Combine Date Hash + User Chart Signature
+        const personalizedSeed = hash + userOffset;
+
+        // Base Pools
+        const commonYi = [
+            "写代码", "重构", "提交PR", "摸鱼", "喝奶茶", "健身", 
+            "约会", "表白", "理财", "吸猫", "早睡", "阅读", 
+            "冥想", "大扫除", "听音乐", "看展", "学习新框架", "备份数据",
+            "复盘", "断舍离", "做饭", "散步", "玩游戏", "睡懒觉"
+        ];
+        
+        const commonJi = [
+            "熬夜", "乱立Flag", "直接推产", "过度焦虑", "内耗", "吵架", 
+            "借钱", "暴饮暴食", "久坐", "盲目跟风", "冲动消费", "忘记保存", 
+            "拖延症", "八卦", "无意义会议", "剧透", "迟到", "冷战"
+        ];
+
+        // Specialized Pools
+        const aggroYi = ["挑战权威", "极限运动", "创业", "大额投资", "通宵冲刺"];
+        const gentleYi = ["泡脚", "种花", "写日记", "做SPA", "听轻音乐"];
+
+        // Construct Final Pool based on personality
+        let finalYi = [...commonYi];
+        let finalJi = [...commonJi];
+
+        if (starPersonality === "aggressive") {
+            finalYi.push(...aggroYi);
+        } else if (starPersonality === "gentle") {
+            finalYi.push(...gentleYi);
+        }
+
+        // Helper to pick n unique items based on seed
+        const pickItems = (pool, count, seedVal) => {
+            let result = [];
+            let tempPool = [...pool];
+            for (let i = 0; i < count; i++) {
+                // Simple pseudo-random
+                const rnd = Math.abs(Math.sin(seedVal + i * 13)) * 10000;
+                const idx = Math.floor((rnd - Math.floor(rnd)) * tempPool.length);
+                result.push(tempPool[idx]);
+                tempPool.splice(idx, 1);
+            }
+            return result;
+        };
+
+        return {
+            yi: pickItems(finalYi, 4, personalizedSeed),
+            ji: pickItems(finalJi, 4, personalizedSeed + 42)
+        };
+    }
+    
+    // Initialize Daily Logic
+    function initDailyCalendar() {
+        // Use Lunar library to get today's info
+        const now = new Date();
+        const lunar = Lunar.fromDate(now);
+        const solar = Solar.fromDate(now);
+        
+        // Update UI
+        const dateStr = `${solar.getYear()}-${solar.getMonth()}-${solar.getDay()}`;
+        document.getElementById('calSolarDate').innerText = `${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日`;
+        document.getElementById('calLunarDate').innerText = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
+        document.getElementById('calGanzhi').innerText = `${lunar.getYearInGanZhi()}年 · ${lunar.getMonthInGanZhi()}月 · ${lunar.getDayInGanZhi()}日`;
+        
+        // Modern Yi / Ji (Pass currentChart for personalization)
+        const modernData = getModernYiJi(dateStr, currentChart);
+        
+        // Add a subtle indicator if personalized
+        if (currentChart) {
+            document.querySelector('.yiji-box.yi').style.border = "1px solid rgba(50, 205, 50, 0.6)";
+            document.querySelector('.yiji-box.ji').style.border = "1px solid rgba(255, 69, 0, 0.6)";
+        }
+        
+        document.getElementById('calYi').innerText = modernData.yi.join(' · ');
+        document.getElementById('calJi').innerText = modernData.ji.join(' · ');
+    }
+    
+    function toggleDailyPanel() {
+        const panel = document.getElementById('dailyPanel');
+        if (panel.style.display === 'flex') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'flex';
+            // Close other floating windows if open
+            document.getElementById('chatWindow').style.display = 'none';
+            document.getElementById('lifePanel').style.display = 'none';
+            // Init data
+            initDailyCalendar();
+        }
+    }
+
+    async function generateDailyReport() {
+        const aiTextDiv = document.getElementById('calAiText');
+        
+        if (!currentChart) {
+            aiTextDiv.innerText = "请先在左侧输入生日并生成命盘，以便大师为您推算今日运势。";
+            return;
+        }
+
+        aiTextDiv.innerHTML = '<span class="animate-pulse">大师正在掐指一算...</span>';
+        
+        const now = new Date();
+        const lunar = Lunar.fromDate(now);
+        
+        // Context construction
+        const todayInfo = {
+            date: `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`,
+            lunar: `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`,
+            ganzhi: `${lunar.getDayInGanZhi()}日`,
+            yi: lunar.getDayYi().join(','),
+            ji: lunar.getDayJi().join(',')
+        };
+        
+        const prompt = `
+            今天是：${todayInfo.date} (农历${todayInfo.lunar}, ${todayInfo.ganzhi})。
+            宜：${todayInfo.yi}。忌：${todayInfo.ji}。
+            用户命盘摘要：${currentChart.getSummary().substring(0, 500)}...
+            
+            请结合今日的日课（干支五行、宜忌）和用户的命盘结构，给出一小段（100字以内）的今日运势提醒。
+            要求：简单易懂，有参考价值，口语化，像个老朋友的叮嘱。
+            注意：直接输出运势内容即可，严禁在结尾显示“共xx字”或类似的字数统计。
+        `;
+        
+        const result = await callGemini(prompt);
+        aiTextDiv.innerText = result;
+    }
+
+    // --- AI FEATURES IMPLEMENTATION ---
+
+    async function analyzeCurrentPalace() {
+        if (!selectedPalaceData) return;
+        
+        const modal = document.getElementById('ai-modal');
+        const contentDiv = document.getElementById('ai-result-text');
+        
+        modal.style.display = 'flex';
+        contentDiv.innerHTML = '<p class="animate-pulse">🌌 正在连接星辰数据库，请稍候...</p>';
+        
+        const palaceName = selectedPalaceData.name;
+        const starsDesc = selectedPalaceData.stars.map(s => {
+            let desc = `${s.name}（亮度：${s.brightness}）`;
+            if (s.sihua) desc += ` [化${s.sihua}]`;
+            return desc;
+        }).join('，') || "无主星";
+
+        const prompt = `
+            请你扮演一位精通紫微斗数的命理大师。
+            请根据以下信息，为用户解析【${palaceName}】的运势：
+            
+            宫位：${palaceName}
+            宫干支：${selectedPalaceData.stem}${selectedPalaceData.branch}
+            星曜组合：${starsDesc}
+            
+            要求：
+            1. 语气神秘、专业但富有现代感，带有鼓励性质。
+            2. 解释主星的核心含义及其在该宫位的表现。
+            3. 如果有四化（禄权科忌），请重点解读。
+            4. 如果有吉星或煞星，请说明其影响。
+            5. 如果无主星，请解释借对宫星曜的含义（仅简述）。
+            6. 输出格式使用简单的 Markdown。
+        `;
+
+        const result = await callGemini(prompt);
+        contentDiv.innerHTML = marked.parse(result);
+    }
+
+    function closeAiModal() {
+        document.getElementById('ai-modal').style.display = 'none';
+    }
+
+    function toggleChat() {
+        const win = document.getElementById('chatWindow');
+        win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+        // Close calendar if open
+        document.getElementById('dailyPanel').style.display = 'none';
+        document.getElementById('lifePanel').style.display = 'none';
+    }
+
+    function handleChatKey(e) {
+        if (e.key === 'Enter') askMaster();
+    }
+
+    async function askMaster() {
+        if (!currentChart) {
+            alert("请先生成星盘！");
+            return;
+        }
+        
+        const input = document.getElementById('userQuery');
+        const query = input.value.trim();
+        if (!query) return;
+
+        const chatBox = document.getElementById('chatMessages');
+        
+        // User Msg
+        const userDiv = document.createElement('div');
+        userDiv.className = 'msg msg-user';
+        userDiv.innerText = query;
+        chatBox.appendChild(userDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        input.value = '';
+
+        // AI Loading Msg
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'msg msg-ai animate-pulse';
+        loadingDiv.innerText = '大师正在推演中...';
+        chatBox.appendChild(loadingDiv);
+        
+        // Context
+        const chartSummary = currentChart.getSummary();
+        const systemPrompt = `你是一位资深的紫微斗数命理大师。以下是用户的命盘数据：\n${chartSummary}\n请根据此数据回答用户的问题。语气要专业、温和、客观，避免过于宿命论，多给建设性建议。`;
+        
+        const response = await callGemini(query, systemPrompt);
+        
+        chatBox.removeChild(loadingDiv);
+        const aiDiv = document.createElement('div');
+        aiDiv.className = 'msg msg-ai';
+        aiDiv.innerHTML = marked.parse(response); // Support basics
+        chatBox.appendChild(aiDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+        
+        chartObj.rotation.z += 0.0003;
+        
+        if (coreMesh) {
+            // coreMesh.rotation.y += 0.01; // Removed constant rotation, let shader handle movement
+            coreMesh.rotation.z += 0.005; // Re-enabled rotation for Tai Chi
+        }
+
+        // Update Shader Uniforms
+        if (coreUniforms) {
+            coreUniforms.uTime.value = performance.now() / 1000;
+        }
+        
+        const dust = scene.getObjectByName('dust');
+        if (dust) dust.rotation.z -= 0.0002;
+    }
+
+    // Initialize
+    init3D();
+    generateChart();
+
+</script>
+</body>
+</html>
