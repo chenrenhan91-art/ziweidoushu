@@ -103,13 +103,13 @@
             right: 24px;
             width: 380px; 
             max-width: 90vw;
-            transform: translateX(120%); 
+            transform: translateX(120%); /* Initially hidden off-screen */
             border-right: 3px solid #ffb703;
             max-height: 85vh; 
             z-index: 20;
         }
         .info-panel.active {
-            transform: translateX(0);
+            transform: translateX(0); /* Slide in when active */
         }
 
         .info-panel.collapsed {
@@ -385,7 +385,6 @@
         .calendar-fab { background: linear-gradient(135deg, #ffd700, #ff8c00); box-shadow: 0 5px 25px rgba(255, 140, 0, 0.4); }
         .kline-fab { background: linear-gradient(135deg, #ef4444, #b91c1c); box-shadow: 0 5px 25px rgba(220, 38, 38, 0.4); }
         .liuyao-fab { background: linear-gradient(135deg, #14b8a6, #0d9488); box-shadow: 0 5px 25px rgba(20, 184, 166, 0.4); }
-        /* Removed setting-fab */
         .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 10px auto 5px auto; display: none; }
 
         /* --- MOBILE RESPONSIVE TWEAKS --- */
@@ -584,7 +583,6 @@
     <div class="fab calendar-fab" onclick="toggleDailyPanel()" title="今日星历">📅</div>
     <div class="fab kline-fab" onclick="toggleLifePanel()" title="人生大运K线">📈</div>
     <div class="fab chat-fab" onclick="toggleChat()" title="命理咨询">✨</div>
-    <div class="fab setting-fab" onclick="toggleSettingsModal()" title="设置 API Key">⚙️</div>
 </div>
 
 <!-- Daily Calendar Panel -->
@@ -685,32 +683,14 @@
     </div>
 </div>
 
-<!-- Settings Modal -->
-<div id="settings-modal" class="modal-overlay">
-    <div class="ai-content">
-        <span class="close-modal" onclick="toggleSettingsModal()">&times;</span>
-        <h2 class="text-xl font-bold mb-4 text-white">⚙️ API 设置</h2>
-        <div class="text-sm text-gray-400 mb-4">
-            检测到连接错误 (401/403)。<br>由于安全限制，系统可能无法自动注入 Key。<br>请手动输入您的 <strong>Google Gemini API Key</strong> 以继续使用 AI 功能。
-        </div>
-        <input type="password" id="apiKeyInput" placeholder="在此粘贴您的 Gemini API Key" class="w-full bg-gray-800 border border-gray-600 p-3 rounded text-white mb-4">
-        <button onclick="saveApiKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition">保存并连接</button>
-        <p class="text-xs text-gray-500 mt-4 text-center">您的 Key 仅保存在本地内存中，刷新页面后需重新输入。</p>
-    </div>
-</div>
-
 <script>
     // --- GEMINI/WORKER API CONFIG ---
     // Replaced Gemini API with custom Worker API (Qwen)
     const apiKey = ""; // System provides key
-    let customApiKey = ""; // User provided key override
     
     async function callAI(prompt, systemInstruction = "") {
-        const effectiveKey = customApiKey || apiKey;
-        
         // Use default fallback if no key is present to prevent immediate URL error, 
         // but it will likely fail with 400/403 which we catch below.
-        const keyParam = effectiveKey ? `?key=${effectiveKey}` : "";
         const url = `https://yuzai.chenrenhan91.workers.dev/api/generate`;
         
         // Combine system instruction and prompt if both exist
@@ -733,15 +713,7 @@
 
                 if (!response.ok) {
                     const status = response.status;
-                    // Handle Auth Errors specifically
-                    if (status === 400 || status === 401 || status === 403) {
-                        console.warn("Gemini API Auth Error:", status);
-                        toggleSettingsModal(true); // Open settings modal automatically
-                        return "⚠️ 连接错误：API Key 无效或缺失。请在弹出的设置窗口中输入有效的 Gemini API Key。";
-                    }
-                    
-                    const errData = await response.json().catch(() => ({}));
-                    console.error("Gemini API Error:", status, errData);
+                    console.error("AI API Error:", status);
                     throw new Error(`HTTP error! status: ${status}`);
                 }
                 
@@ -763,28 +735,6 @@
         }
     }
     
-    // Settings Modal Logic
-    function toggleSettingsModal(forceOpen = false) {
-        const modal = document.getElementById('settings-modal');
-        if (forceOpen) {
-            modal.style.display = 'flex';
-        } else {
-            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-        }
-    }
-
-    function saveApiKey() {
-        const input = document.getElementById('apiKeyInput');
-        const key = input.value.trim();
-        if (key) {
-            customApiKey = key;
-            alert("API Key 已保存！请重新尝试刚才的操作。");
-            toggleSettingsModal();
-        } else {
-            alert("请输入有效的 Key。");
-        }
-    }
-
     // --- ZI WEI DOU SHU LOGIC ---
     const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
     const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
@@ -1454,8 +1404,8 @@
             const moveDist = Math.sqrt(Math.pow(upX - downX, 2) + Math.pow(upY - downY, 2));
             const timeDiff = performance.now() - downTime;
 
-            // If movement is small (< 10px) and duration is short (< 500ms), treat as tap
-            if (moveDist < 10 && timeDiff < 500) {
+            // If movement is small (< 10px) and duration is short (< 600ms), treat as tap
+            if (moveDist < 10 && timeDiff < 600) {
                 // Manually trigger raycast logic with the UP coordinates
                 handleRaycast(upX, upY);
             }
@@ -1485,14 +1435,9 @@
                 const centerIndex = target.userData.id;
                 const panel = document.getElementById('infoPanel');
                 
-                // Mobile Logic: 
-                // 1. Open Info Panel (Slide up)
-                if (window.innerWidth <= 768) {
-                    panel.classList.add('active');
-                    panel.classList.remove('collapsed');
-                } else {
-                    panel.classList.remove('collapsed');
-                }
+                // Unified Logic: Open and expand panel on ALL devices
+                panel.classList.add('active'); // Bring into view
+                panel.classList.remove('collapsed'); // Expand content
                 
                 showInfoPanel(target.userData.data);
                 visualizeRelationships(centerIndex);
