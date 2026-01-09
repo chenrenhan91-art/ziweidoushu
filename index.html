@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -175,6 +176,47 @@
             box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
         }
 
+        /* NEW AI HEX BUTTON STYLE (From Uiverse.io by Yaya12085) */
+        .ai-hex-btn {
+            width: fit-content;
+            display: flex;
+            padding: 1em 1.5rem; /* Adjusted padding slightly */
+            cursor: pointer;
+            gap: 0.4rem;
+            font-weight: bold;
+            border-radius: 30px;
+            text-shadow: 2px 2px 3px rgb(136 0 136 / 50%);
+            background: linear-gradient(15deg, #880088, #aa2068, #cc3f47, #de6f3d, #f09f33, #de6f3d, #cc3f47, #aa2068, #880088) no-repeat;
+            background-size: 300%;
+            color: #fff;
+            border: none;
+            background-position: left center;
+            box-shadow: 0 30px 10px -20px rgba(0,0,0,.2);
+            transition: background .3s ease;
+            margin: 15px auto; /* Center horizontally */
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .ai-hex-btn:hover {
+            background-size: 320%;
+            background-position: right center;
+        }
+
+        .ai-hex-btn:hover svg {
+            fill: #fff;
+        }
+
+        .ai-hex-btn svg {
+            width: 23px;
+            fill: #f09f33;
+            transition: .3s ease;
+        }
+        
+        .ai-hex-btn.hidden {
+            display: none;
+        }
+
         /* Buttons & Animations */
         .uiverse {
             --duration: 7s; --easing: linear; --c-color-1: rgba(56, 189, 248, 0.7); --c-color-2: #4361ee; --c-color-3: #c084fc; --c-color-4: rgba(34, 211, 238, 0.7);
@@ -249,6 +291,24 @@
         .sihua-quan { color: #60a5fa; font-weight: bold; text-shadow: 0 0 5px rgba(96, 165, 250, 0.5); }
         .sihua-ke { color: #c084fc; font-weight: bold; text-shadow: 0 0 5px rgba(192, 132, 252, 0.5); }
         .sihua-ji { color: #f43f5e; font-weight: bold; text-shadow: 0 0 5px rgba(244, 63, 94, 0.5); }
+        
+        /* Shen Gong Info Box Style */
+        .shen-info-box {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            color: #d1fae5;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+        }
+        .shen-label {
+            color: #34d399;
+            font-weight: bold;
+            margin-bottom: 4px;
+            display: block;
+        }
 
         /* Loader */
         #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #02040a; z-index: 100; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: opacity 0.5s; }
@@ -364,6 +424,28 @@
         .coin.yang { background: radial-gradient(circle at 30% 30%, #ffd700, #daa520); box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 0 4px #ffd700; }
         .coin.yin { background: radial-gradient(circle at 30% 30%, #cd7f32, #8b4513); box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 0 4px #8b4513; }
         .shaking { animation: shake 0.6s ease-in-out; }
+        
+        /* Better Toss Animation - Enhanced Physics */
+        @keyframes toss1 {
+            0% { transform: translateY(0) rotateX(0) rotateZ(0); animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+            50% { transform: translateY(-300px) rotateX(1080deg) rotateZ(45deg); animation-timing-function: cubic-bezier(0.8, 0, 0.8, 0.2); }
+            100% { transform: translateY(0) rotateX(2160deg) rotateZ(0); }
+        }
+        @keyframes toss2 {
+            0% { transform: translateY(0) rotateX(0) rotateZ(0); animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); }
+            45% { transform: translateY(-350px) rotateX(1260deg) rotateZ(-60deg); animation-timing-function: cubic-bezier(0.64, 0.04, 0.8, 0.4); }
+            100% { transform: translateY(0) rotateX(2520deg) rotateZ(0); }
+        }
+        @keyframes toss3 {
+            0% { transform: translateY(0) rotateX(0) rotateZ(0); animation-timing-function: cubic-bezier(0.18, 0.89, 0.32, 1.28); }
+            55% { transform: translateY(-280px) rotateX(900deg) rotateZ(30deg); animation-timing-function: cubic-bezier(0.6, -0.28, 0.74, 0.05); }
+            100% { transform: translateY(0) rotateX(1800deg) rotateZ(0); }
+        }
+        
+        .coin.tossing-1 { animation: toss1 1.2s forwards; }
+        .coin.tossing-2 { animation: toss2 1.4s forwards; }
+        .coin.tossing-3 { animation: toss3 1.3s forwards; }
+
         .hexagram-display { width: 100%; margin-top: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; min-height: 180px; display: flex; flex-direction: column-reverse; gap: 8px; border: 1px solid #334155; }
         .hex-row { display: flex; align-items: center; justify-content: center; height: 20px; position: relative; }
         .hex-label { position: absolute; left: 0; font-size: 10px; color: #64748b; width: 20px; }
@@ -388,7 +470,46 @@
         .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 10px auto 5px auto; display: none; }
 
         /* --- MOBILE RESPONSIVE TWEAKS --- */
-        @media (max-width: 768px) {
+        @media (max-width: 768px)    /* ===== FIX: Info Panel 内容被 FAB 遮挡（移动端） ===== */
+
+    :root {
+        --fab-safe-space: calc(90px + env(safe-area-inset-bottom));
+    }
+
+    /* 1. 给信息滚动区预留底部安全空间 */
+    .info-panel .info-scroll {
+        padding-bottom: var(--fab-safe-space);
+    }
+
+    /* 2. 让「问星 AI 深度解析」按钮始终可见 */
+    .info-panel .ai-text-btn {
+        position: sticky;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        z-index: 2;
+
+        background: rgba(10, 15, 30, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+
+        padding: 12px 0;
+        margin-bottom: 0;
+    }
+
+    .info-panel .ai-text-btn::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -8px;
+        height: 1px;
+        background: linear-gradient(
+            to right,
+            transparent,
+            rgba(56,189,248,0.35),
+            transparent
+        );
+    }
+ {
             /* Input Panel - Top Navigation Style */
             .input-panel {
                 width: calc(100% - 30px);
@@ -491,7 +612,7 @@
     <div class="panel input-panel" id="inputPanel">
         <!-- Header -->
         <div class="panel-header" onclick="toggleInputPanel()">
-            <h1 class="flex items-center gap-2">🌌 <span class="hidden sm:inline">紫微星系</span><span class="sm:hidden text-sm">星际舰队版</span></h1>
+            <h1 class="flex items-center gap-2">🌌 <span class="hidden sm:inline">紫微星系</span><span class="sm:hidden text-sm">紫薇星系</span></h1>
             <div class="toggle-icon">▼</div>
         </div>
 
@@ -651,7 +772,12 @@
         </div>
 
         <button class="toss-btn" id="tossBtn" onclick="tossCoins()">🤲 摇一卦</button>
-        <button class="ai-btn hidden" id="interpretBtn" onclick="interpretHexagram()" style="padding: 6px; font-size: 0.85rem; margin-top: 10px;">✨ 问星 AI 解卦</button>
+        <button class="ai-hex-btn hidden" id="interpretBtn" onclick="interpretHexagram()">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            问星 AI 解卦
+        </button>
         <button class="reset-btn" onclick="resetHexagram()">🔄 重置卦象</button>
     </div>
 </div>
@@ -684,51 +810,54 @@
 </div>
 
 <script>
-    // --- GEMINI/WORKER API CONFIG ---
-    // Replaced Gemini API with custom Worker API (Qwen)
-    const apiKey = ""; // System provides key
+    // --- SECURE API CONFIG (使用 Make.com 後端) ---
+    // ⚠️ 重要：API Key 和 Webhook 網址已安全地配置在後端
+    // 前端不再直接暴露任何敏感資訊
+    
+    const WEBHOOK_URL = "https://hook.us2.make.com/fls5awanvkl1x2eg8sb1hg8mbsb9tbz3";
+    const API_KEY = "qq1095188292";
     
     async function callAI(prompt, systemInstruction = "") {
-        // Use default fallback if no key is present to prevent immediate URL error, 
-        // but it will likely fail with 400/403 which we catch below.
-        const url = `https://yuzai.chenrenhan91.workers.dev/api/generate`;
+        // 構建完整的請求 URL（將問題作為查詢參數）
+        const url = new URL(WEBHOOK_URL);
         
-        // Combine system instruction and prompt if both exist
-        const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt;
+        // 將 prompt 和 systemInstruction 組合成完整的問題
+        let fullQuestion = prompt;
+        if (systemInstruction && systemInstruction.trim() !== "") {
+            fullQuestion = `${systemInstruction}\n\n${prompt}`;
+        }
         
-        const payload = {
-            prompt: fullPrompt
-        };
-
+        url.searchParams.append('question', fullQuestion);
+        
         const maxRetries = 3;
         let delay = 1000;
 
         for (let i = 0; i < maxRetries; i++) {
             try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'x-make-apikey': API_KEY
+                    }
                 });
 
                 if (!response.ok) {
                     const status = response.status;
-                    console.error("AI API Error:", status);
+                    console.error("Webhook API Error:", status);
+                    
+                    if (status === 401 || status === 403) {
+                        return `⚠️ **連接失敗 (${status})**\n\nAPI 驗證失敗，請聯繫開發者。`;
+                    }
+
                     throw new Error(`HTTP error! status: ${status}`);
                 }
                 
-                const data = await response.json();
-                
-                if (data && data.ok && data.text) {
-                    return data.text;
-                } else {
-                    console.error("Worker API returned error or invalid format", data);
-                    throw new Error("API returned invalid data format");
-                }
-                
+                // Make.com Webhook Response 直接返回文本
+                const aiResponse = await response.text();
+                return aiResponse || "星象模糊，無法解讀。";
             } catch (error) {
                 console.error("Attempt", i+1, "failed:", error);
-                if (i === maxRetries - 1) return `连接宇宙能量失败 (API Error: ${error.message})。请稍后再试。`;
+                if (i === maxRetries - 1) return `連接宇宙能量失敗。請檢查網絡連接後再試。`;
                 await new Promise(r => setTimeout(r, delay));
                 delay *= 2;
             }
@@ -1225,9 +1354,26 @@
         if (isTossing || currentYaoLines.length >= 6) return;
         isTossing = true;
         const coins = document.querySelectorAll('.coin');
-        coins.forEach(c => c.classList.add('shaking'));
+        
+        // Remove any existing result classes (yang/yin) to show "neutral" state during toss? 
+        // Actually, usually you keep the previous state or reset. Let's keep it simple.
+        
+        // Apply random toss animations
+        const tossClasses = [];
+        coins.forEach((c, index) => {
+            // Randomly pick an animation variant 1, 2, or 3
+            const variant = Math.floor(Math.random() * 3) + 1;
+            const cls = `tossing-${variant}`;
+            c.classList.add(cls);
+            tossClasses[index] = cls;
+        });
+
+        // Timeout needs to match the longest animation (approx 1.4s)
         setTimeout(() => {
-            coins.forEach(c => c.classList.remove('shaking'));
+            coins.forEach((c, index) => {
+                c.classList.remove(tossClasses[index]);
+            });
+            
             let sum = 0;
             for(let i=0; i<3; i++) {
                 const isYang = Math.random() > 0.5;
@@ -1246,7 +1392,7 @@
                 document.getElementById('interpretBtn').classList.add('flex');
             }
             isTossing = false;
-        }, 600);
+        }, 1500); // 1.5s to be safe
     }
 
     function resetHexagram() {
@@ -1303,7 +1449,7 @@
                 <p class="text-xs text-gray-500 mt-2">正在以此卦问询天机</p>
             </div>
         `;
-        const systemPrompt = `你是一位精通《增删卜易》与传统纳甲筮法的六爻命理大师。你的任务是根据用户摇出的金钱课卦象（本卦、动爻、变卦）进行专业解读。解读要求：1. 准确分析卦名、五行、世应关系。2. 重点分析动爻（老阴/老阳）的吉凶变化，动爻是事情成败的关键。3. 结合变卦判断事情的最终走向。4. 语气专业、神秘但客观，给出具体的行动建议。5. 输出格式使用 Markdown，关键吉凶结论请加粗。`;
+        const systemPrompt = `你是一位精通《增删卜易》与传统纳甲筮法的六爻命理大师。你的任务是根据用户摇出的金钱课卦象（本卦、动爻、变卦）进行专业解读。解读要求：1. 准确分析卦名、五行、世应关系。2. 重点分析动爻（老阴/老阳）的吉凶变化，动爻是事情成败的关键。3. 结合变卦判断事情的最终走向。4. 语气专业、神秘但客观，给出具体的行动建议。5. 输出格式使用简单的 Markdown，关键吉凶结论请加粗。`;
         const userPrompt = `用户起卦结果如下：【本卦】: ${benGuaName} (结构: ${binStr}) 【动爻】: ${movingLinesDesc || "静卦无动爻"} 【变卦/之卦】: ${zhiGuaName} 请开始解卦。`;
         const result = await callAI(userPrompt, systemPrompt);
         contentDiv.innerHTML = marked.parse(result);
@@ -1484,11 +1630,41 @@
         if (data.isShen) { baseColor = 0x00aa88; opacityVal = 0.7; }
         const material = new THREE.MeshPhysicalMaterial({ color: baseColor, transparent: true, opacity: opacityVal, metalness: 0.8, roughness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.1, emissive: emissiveColor, emissiveIntensity: 0.5, side: THREE.DoubleSide });
         const mesh = new THREE.Mesh(geometry, material); mesh.userData = { id: index, data: data, originalColor: baseColor, originalEmissive: emissiveColor }; 
-        const labelText = data.name + '\n' + data.stem + data.branch;
-        const sprite = createTextSprite(labelText, data.isMing ? 0xffd700 : 0xaaccff);
+        
+        // --- UPDATED LABEL GENERATION ---
+        let labelName = data.name;
+        if (data.isShen) {
+            labelName += "(身宫)";
+        }
+        const labelText = labelName + '\n' + data.stem + data.branch;
+        
+        let highlightType = 0; // 0: None, 1: Ming, 2: Shen
+        let textColor = 0xaaccff;
+        
+        if (data.isMing) {
+            highlightType = 1;
+            textColor = 0xffd700;
+        } else if (data.isShen) {
+            highlightType = 2;
+            textColor = 0x33ff33; // Bright green for Shen text
+        }
+        
+        const sprite = createTextSprite(labelText, textColor, highlightType);
+        
         const angle = thetaStart + thetaLength / 2; const r = (radiusInner + radiusOuter) / 2;
-        sprite.position.set(r * Math.cos(angle), r * Math.sin(angle), 5); mesh.add(sprite);
-        if (data.isMing) { const glow = createGlowSprite(0x0077ff, 12); glow.position.set(r * Math.cos(angle), r * Math.sin(angle), -2); mesh.add(glow); }
+        sprite.position.set(r * Math.cos(angle), r * Math.sin(angle), 15); mesh.add(sprite); // Changed z from 5 to 15 to clear planets
+        
+        if (data.isMing) { 
+            const glow = createGlowSprite(0x0077ff, 12); 
+            glow.position.set(r * Math.cos(angle), r * Math.sin(angle), -2); 
+            mesh.add(glow); 
+        } else if (data.isShen) {
+             // Green glow for Shen
+            const glow = createGlowSprite(0x00ff88, 12); 
+            glow.position.set(r * Math.cos(angle), r * Math.sin(angle), -2); 
+            mesh.add(glow); 
+        }
+        
         addStarsToSector(mesh, data.stars, angle, r);
         sectorMeshes[index] = mesh; return mesh;
     }
@@ -1523,14 +1699,57 @@
         });
     }
 
-    function createTextSprite(message, color) {
+    function createTextSprite(message, color, highlightType = 0) {
         const canvas = document.createElement('canvas'); const context = canvas.getContext('2d'); canvas.width = 512; canvas.height = 256;
         context.clearRect(0, 0, canvas.width, canvas.height); 
-        context.font = "Bold 50px 'Noto Sans SC'"; context.fillStyle = "rgba(255,255,255,1)"; context.textAlign = "center"; context.textBaseline = "middle"; context.shadowColor = "#000"; context.shadowBlur = 15; context.lineWidth = 4;
+        context.textAlign = "center"; context.textBaseline = "middle"; context.lineWidth = 4;
+        
         const lines = message.split('\n');
-        lines.forEach((line, i) => { if (i===0) { context.fillStyle = '#' + new THREE.Color(color).getHexString(); context.font = "Bold 60px 'Noto Sans SC'"; context.fillText(line, 256, 100); } else { context.fillStyle = "#cccccc"; context.font = "40px 'Noto Sans SC'"; context.fillText(line, 256, 160); } });
+        lines.forEach((line, i) => { 
+            if (i===0) { 
+                context.fillStyle = '#' + new THREE.Color(color).getHexString(); 
+                
+                // Dynamic font size for longer titles (e.g. "命宫(身宫)")
+                let fontSize = 60;
+                if (highlightType === 1) fontSize = 80;
+                if (line.length > 3) fontSize *= 0.75; // Reduce size if text is long
+
+                if (highlightType === 1) { // Ming (Gold)
+                    context.font = `Bold ${fontSize}px 'Noto Sans SC'`; 
+                    context.shadowColor = "rgba(255, 215, 0, 0.9)"; 
+                    context.shadowBlur = 25;
+                    context.fillText(line, 256, 90);
+                    context.shadowBlur = 10;
+                    context.fillText(line, 256, 90);
+                } else if (highlightType === 2) { // Shen (Green)
+                    context.font = `Bold ${fontSize}px 'Noto Sans SC'`; 
+                    context.shadowColor = "rgba(50, 255, 50, 0.9)"; 
+                    context.shadowBlur = 20;
+                    context.fillText(line, 256, 100);
+                    context.shadowBlur = 8;
+                    context.fillText(line, 256, 100);
+                } else { // Normal
+                    context.font = `Bold ${fontSize}px 'Noto Sans SC'`; 
+                    context.shadowColor = "#000"; 
+                    context.shadowBlur = 15; 
+                    context.fillText(line, 256, 100);
+                }
+            } else { 
+                // Subtext color
+                if (highlightType === 1) context.fillStyle = "#ffecb3";
+                else if (highlightType === 2) context.fillStyle = "#ccffcc";
+                else context.fillStyle = "#cccccc";
+                
+                context.font = "40px 'Noto Sans SC'"; 
+                context.shadowColor = "#000";
+                context.shadowBlur = 8;
+                context.fillText(line, 256, 170); 
+            } 
+        });
         const texture = new THREE.CanvasTexture(canvas); const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-        const sprite = new THREE.Sprite(spriteMaterial); sprite.scale.set(8, 4, 1); return sprite;
+        // Scale adjustment: Only Ming gets bigger scale
+        const scale = (highlightType === 1) ? 10 : 8; 
+        const sprite = new THREE.Sprite(spriteMaterial); sprite.scale.set(scale, scale * 0.5, 1); return sprite;
     }
 
     function createGlowSprite(color, scale) {
@@ -1611,7 +1830,12 @@
     
     function showInfoPanel(data) {
         selectedPalaceData = data; 
-        document.getElementById('panelTitle').innerText = data.name + ' (' + data.stem + data.branch + ')';
+        
+        // Update Title
+        let panelTitleText = data.name;
+        if (data.isShen) panelTitleText += " (身宫)";
+        document.getElementById('panelTitle').innerText = panelTitleText + ' (' + data.stem + data.branch + ')';
+        
         const PALACE_DESC_MAP = {
             '命宫': '核心人格 · 天赋特质 · 命运总览', '兄弟': '知心好友 · 合作伙伴 · 现金周转', '夫妻': '感情模式 · 伴侣特质 · 婚姻状况', '子女': '亲子关系 · 晚辈缘分 · 合伙事业',
             '财帛': '赚钱能力 · 收入来源 · 理财观念', '疾厄': '身体健康 · 潜意识 · 情绪压力', '迁移': '对外形象 · 社交机遇 · 出行运势', '仆役': '人际圈子 · 粉丝受众 · 朋友助力',
@@ -1620,11 +1844,26 @@
         let subText = PALACE_DESC_MAP[data.name] || '未知领域';
         if (data.isMing) { subText = '【本命核心】 ' + subText; document.getElementById('panelSub').className = "text-xs text-yellow-300 font-mono font-bold"; } else if (data.isShen) { subText = '【后天身宫】 ' + subText; document.getElementById('panelSub').className = "text-xs text-green-300 font-mono font-bold"; } else { document.getElementById('panelSub').className = "text-xs text-blue-300 font-mono"; }
         document.getElementById('panelSub').innerText = subText;
+        
         const list = document.getElementById('starList'); list.innerHTML = '';
-        if (data.stars.length === 0) { list.innerHTML = '<div class="text-gray-500 text-sm">此宫无主星 (借对宫星曜)</div>'; } else {
+        
+        // --- NEW: Shen Gong Explanation Box ---
+        if (data.isShen) {
+            const shenInfo = document.createElement('div');
+            shenInfo.className = 'shen-info-box';
+            shenInfo.innerHTML = `<span class="shen-label">✨ 后天身宫解析</span>身宫在紫微斗数中代表后天生活的发展方向、行为模式和中晚年运势。身宫所在的宫位，往往是您后天人生发展的重点舞台。`;
+            list.appendChild(shenInfo);
+        }
+
+        if (data.stars.length === 0) { 
+            const noStar = document.createElement('div');
+            noStar.className = "text-gray-500 text-sm mt-4";
+            noStar.innerText = "此宫无主星 (借对宫星曜)";
+            list.appendChild(noStar);
+        } else {
             data.stars.sort((a,b) => { const order = { 'main': 1, 'lucky': 2, 'bad': 3 }; return order[a.category] - order[b.category]; });
             data.stars.forEach(star => {
-                const item = document.createElement('div'); item.className = 'flex items-center justify-between bg-white bg-opacity-10 p-2 rounded';
+                const item = document.createElement('div'); item.className = 'flex items-center justify-between bg-white bg-opacity-10 p-2 rounded mb-2';
                 let sihuaTag = ''; if (star.sihua) { const cls = {'禄':'sihua-lu', '权':'sihua-quan', '科':'sihua-ke', '忌':'sihua-ji'}[star.sihua]; sihuaTag = `<span class="${cls} mr-1">[化${star.sihua}]</span>`; }
                 let brightCls = 'star-ping'; if (star.brightness === '庙') brightCls = 'star-miao'; else if (star.brightness === '旺') brightCls = 'star-wang'; else if (star.brightness === '得') brightCls = 'star-de'; else if (star.brightness === '利') brightCls = 'star-li'; else if (star.brightness === '平') brightCls = 'star-ping'; else if (star.brightness === '陷') brightCls = 'star-xian'; else if (star.brightness === '闲') brightCls = 'star-xian';
                 const starInfo = MAIN_STARS_INFO[star.name] || {}; const desc = starInfo.desc || '';
@@ -1746,7 +1985,5 @@
 </script>
 </body>
 </html>
-
-
 
 
