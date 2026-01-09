@@ -470,21 +470,51 @@
         .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 10px auto 5px auto; display: none; }
 
         /* --- MOBILE RESPONSIVE TWEAKS --- */
-        @media (max-width: 768px) {
-            /* Input Panel - Top Navigation Style */
-            .input-panel {
-                width: calc(100% - 30px);
-                left: 15px; right: 15px; top: 15px;
-                max-height: 70dvh; /* Use dvh for mobile address bar adjustment */
-                z-index: 30;
-                transform: none; 
-                transition: max-height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-                background: rgba(10, 15, 30, 0.9); /* More opaque */
-            }
-            .input-panel.collapsed {
-                max-height: 60px;
-                overflow: hidden;
-            }
+@media (max-width: 768px) {
+  /* Info Panel - TOP HALF Sheet Style (从屏幕上半块展开) */
+  .info-panel {
+    width: calc(100% - 30px);
+    left: 15px;
+    right: 15px;
+
+    /* 放到上半屏 */
+    top: 90px;               /* 给顶部输入面板留空间，可按需要调大/调小 */
+    bottom: auto;
+
+    /* 半屏高度 */
+    height: 45dvh;
+    max-height: 45dvh;
+
+    border-right: none;
+    border-top: 1px solid rgba(255, 183, 3, 0.5);
+    border-radius: 16px;
+
+    /* 默认隐藏：往上移出屏幕 */
+    transform: translateY(-140%);
+    z-index: 35;
+
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    padding-bottom: 0;       /* 不需要安全区占位了 */
+  }
+
+  .info-panel.active {
+    transform: translateY(0);
+  }
+
+  /* 可选：把 mobile 的 handle bar 隐掉（顶部抽屉一般不需要） */
+  .info-panel .handle-bar { 
+    display: none; 
+  }
+
+  /* 关键：不要再用 sticky + 底部 padding 方案，否则容易影响其他面板视觉布局 */
+  .info-panel .info-scroll {
+    padding-bottom: 16px;
+  }
+  .info-panel .ai-text-btn {
+    position: static;
+    margin-top: 16px;
+  }
+}
             
             /* Info Panel - Bottom Sheet Style */
             .info-panel {
@@ -1946,5 +1976,6 @@
 </script>
 </body>
 </html>
+
 
 
