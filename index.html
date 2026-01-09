@@ -470,46 +470,7 @@
         .handle-bar { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 10px auto 5px auto; display: none; }
 
         /* --- MOBILE RESPONSIVE TWEAKS --- */
-        @media (max-width: 768px)    /* ===== FIX: Info Panel 内容被 FAB 遮挡（移动端） ===== */
-
-    :root {
-        --fab-safe-space: calc(90px + env(safe-area-inset-bottom));
-    }
-
-    /* 1. 给信息滚动区预留底部安全空间 */
-    .info-panel .info-scroll {
-        padding-bottom: var(--fab-safe-space);
-    }
-
-    /* 2. 让「问星 AI 深度解析」按钮始终可见 */
-    .info-panel .ai-text-btn {
-        position: sticky;
-        bottom: calc(10px + env(safe-area-inset-bottom));
-        z-index: 2;
-
-        background: rgba(10, 15, 30, 0.9);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-
-        padding: 12px 0;
-        margin-bottom: 0;
-    }
-
-    .info-panel .ai-text-btn::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: -8px;
-        height: 1px;
-        background: linear-gradient(
-            to right,
-            transparent,
-            rgba(56,189,248,0.35),
-            transparent
-        );
-    }
- {
+        @media (max-width: 768px) {
             /* Input Panel - Top Navigation Style */
             .input-panel {
                 width: calc(100% - 30px);
